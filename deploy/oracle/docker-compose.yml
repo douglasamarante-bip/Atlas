@@ -1,0 +1,17 @@
+# Atlas na Oracle Cloud: coletor + túnel Cloudflare (HTTPS sem abrir portas).
+services:
+  coletor:
+    build: ../../collector
+    restart: unless-stopped
+    env_file: .env
+    shm_size: "1gb"        # o Chrome precisa de memória compartilhada
+    expose: ["8080"]
+  tunel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    # Padrão: túnel rápido (endereço aleatório trycloudflare.com).
+    # Túnel fixo: defina TUNNEL_CMD="tunnel --no-autoupdate run" e TUNNEL_TOKEN no .env.
+    command: ${TUNNEL_CMD:-tunnel --no-autoupdate --url http://coletor:8080}
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+    depends_on: [coletor]

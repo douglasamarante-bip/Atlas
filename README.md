@@ -33,6 +33,8 @@ O `collector/` faz o mesmo trabalho da SearchAPI: abre a Biblioteca de Anúncios
 3. Abra `site/config.js` e coloque `window.ATLAS_API = 'https://SEU-COLETOR/ads';`. Faça commit: o Netlify atualiza o site.
 Avisos: (a) a Meta e o Google leem anúncios por páginas que mudam sem aviso, então o coletor pode quebrar e precisar de ajuste; (b) servidores de datacenter costumam ser bloqueados ou receber captcha, e é para isso que a SearchAPI cobra proxies: se acontecer, use `PROXY_URL` com proxy residencial; (c) a coleta automatizada pode contrariar os termos de uso das plataformas: use com volume baixo e por sua conta e risco.
 
+Guia para hospedar o coletor na Oracle Cloud (com HTTPS): `deploy/oracle/LEIAME.md`.
+
 ## 2. Instalar a extensão
 1. Chrome → `chrome://extensions` → ative **Modo do desenvolvedor** → **Carregar sem compactação** → selecione a pasta `extension/`.
 2. Abra a Biblioteca de Anúncios da Meta (facebook.com/ads/library) ou o Centro de Transparência do Google (adstransparency.google.com), pesquise o alvo e deixe os resultados na tela.
