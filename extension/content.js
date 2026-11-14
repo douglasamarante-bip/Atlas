@@ -64,7 +64,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   (async () => {
     if (m.scroll) await autoScroll();
     const rows = location.host.includes('facebook.com') ? meta() : goog();
-    send({rows, q: new URLSearchParams(location.search).get('q') || document.title});
+    send({rows, q: (p => p.get('q') || (p.get('view_all_page_id') && 'ID ' + p.get('view_all_page_id')) || p.get('id') && 'ID ' + p.get('id') || document.title)(new URLSearchParams(location.search))});
   })();
   return true;
 });

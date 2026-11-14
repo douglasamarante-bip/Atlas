@@ -25,6 +25,7 @@ h1{font-size:18px;margin:0 0 2px}.mu{color:var(--mu);font-size:12px}
 input,select,textarea,button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
 #q{flex:1;min-width:200px}
 button{cursor:pointer}button.pri{background:var(--or);border-color:var(--or);color:#fff;font-weight:600}
+#idq{flex:1;min-width:200px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .chip{padding:6px 12px;border-radius:99px;font-size:12px}.chip.on{background:var(--bl);border-color:var(--bl);color:#fff}
 .grid{display:grid;gap:12px}
@@ -65,6 +66,7 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 <option value="0.7">Orçamento diário: baixo</option><option value="1" selected>Orçamento diário: médio</option><option value="1.8">Orçamento diário: alto</option>
 </select>
 </div>
+<div class="bar"><select id="idt"><option value="auto">ID: detectar sozinho</option><option value="mad">Meta · ID do anúncio</option><option value="mpg">Meta · ID da página/anunciante</option><option value="gadv">Google · ID do anunciante (AR…)</option></select><input id="idq" placeholder="ID da biblioteca ou do anunciante (ex.: 1234567890123 ou AR0123456789)" autocomplete="off"><button class="pri" id="idgo">Buscar por ID</button></div>
 <div class="links" id="links"></div>
 <div class="chips" id="chips"></div>
 
@@ -122,10 +124,23 @@ mk('c2',{type:'doughnut',data:{labels:cs,datasets:[{data:sp.map(Math.round),back
 const fs=FM.map(f=>L.filter(a=>a.fmt===f).length);
 mk('c3',{type:'bar',data:{labels:FM,datasets:[{data:fs,backgroundColor:['#ff7a1a','#3b82f6','#22d3ee','#22c55e','#a78bfa'],borderRadius:4}]},options:{...base,indexAxis:'y'}});
 $('tb').innerHTML='<tr><th>Anúncio</th><th>Canal</th><th>Formato</th><th>Início</th><th>Dias no ar</th><th>Gasto aprox.</th><th>Status</th></tr>'+
-L.slice().sort((a,b)=>b.est-a.est).slice(0,12).map(a=>`<tr><td>${esc(a.nome)}</td><td><span class="dot" style="background:${CH[a.canal].c}"></span>${a.canal}</td><td>${a.fmt}</td><td>${a.ini.toLocaleDateString('pt-BR')}</td><td>${a.dias}</td><td><b>${brl(a.est)}</b></td><td><span class="tag ${a.ativo?'on-t':'off-t'}">${a.ativo?'Ativo':'Encerrado'}</span></td></tr>`).join('')}
+L.slice().sort((a,b)=>b.est-a.est).slice(0,12).map(a=>`<tr><td>${lk(a.nome)}</td><td><span class="dot" style="background:${CH[a.canal].c}"></span>${a.canal}</td><td>${a.fmt}</td><td>${a.ini.toLocaleDateString('pt-BR')}</td><td>${a.dias}</td><td><b>${brl(a.est)}</b></td><td><span class="tag ${a.ativo?'on-t':'off-t'}">${a.ativo?'Ativo':'Encerrado'}</span></td></tr>`).join('')}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function links(v){const e=encodeURIComponent(v.replace(/^@/,''));
 $('links').innerHTML=`<a target="_blank" rel="noopener" href="https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=BR&q=${e}&search_type=keyword_unordered">Abrir na Biblioteca de Anúncios da Meta ↗</a><a target="_blank" rel="noopener" href="https://adstransparency.google.com/?region=BR">Abrir no Centro de Transparência do Google ↗</a>`}
+function idLinks(v,t){if(!/^[A-Za-z0-9]+$/.test(v))return null;
+if(t==='auto')t=/^AR\d+$/i.test(v)?'gadv':/^\d{6,}$/.test(v)?'meta':'';
+const M='https://www.facebook.com/ads/library/',L=[];
+if(t==='mad'||t==='meta')L.push(['Meta · abrir o anúncio (ID da biblioteca)',M+'?id='+v]);
+if(t==='mpg'||t==='meta')L.push(['Meta · todos os anúncios deste anunciante (ID da página)',M+'?active_status=all&ad_type=all&country=BR&view_all_page_id='+v+'&search_type=page&media_type=all']);
+if(t==='gadv')L.push(['Google · página do anunciante','https://adstransparency.google.com/advertiser/'+v.toUpperCase()+'?region=BR']);
+return L.length?L:null}
+function byId(){const v=$('idq').value.trim().replace(/\s/g,'');if(!v)return;const L=idLinks(v,$('idt').value);
+if(!L){$('links').innerHTML='<span class="mu">ID não reconhecido. Use só números (Meta) ou o código AR… do anunciante (Google). O ID de criativo CR… só funciona junto com o AR….</span>';return}
+NAME='ID '+v;$('q').value='';
+$('links').innerHTML=L.map(x=>`<a target="_blank" rel="noopener" href="${x[1]}">${x[0]} ↗</a>`).join('')+'<br><span class="mu">Abra o link, deixe os anúncios na tela e use a extensão Atlas para capturar e enviar para cá.</span>';
+if(!IMPORTED)ADS=demo(NAME);render()}
+const lk=n=>{const m=String(n).match(/^(.*?)\s*·\s*(\d{6,})$/);return m?`${esc(m[1])} · <a style="color:var(--cy)" target="_blank" rel="noopener" href="https://www.facebook.com/ads/library/?id=${m[2]}">${m[2]}</a>`:esc(n)};
 function search(){const v=$('q').value.trim();if(!v)return;NAME=v;links(v);if(!IMPORTED)ADS=demo(v);render()}
 function imp(txt,nm){const rows=(typeof txt==='string'?txt:$('csv').value).split(/\n/).map(l=>l.trim()).filter(Boolean),out=[];
 for(const l of rows){const c=l.split(/;|,/).map(x=>x.trim()),k=Object.keys(CH).find(x=>x.toLowerCase()===(c[0]||'').toLowerCase()),ini=new Date(c[3]);
@@ -135,7 +150,7 @@ if(!out.length){alert('Nenhuma linha válida. Use: canal;anuncio;formato;AAAA-MM
 ADS=out;IMPORTED=true;if(nm)NAME=nm;NAME=NAME||'Dados importados';render()}
 ['Todos','Meta','Google'].forEach(p=>{const b=document.createElement('button');b.className='chip'+(p===PF?' on':'');b.textContent=p==='Todos'?'Todas as plataformas':p==='Meta'?'Meta (Facebook + Instagram)':'Google (YouTube + Pesquisa)';
 b.onclick=()=>{PF=p;[...$('chips').children].forEach(x=>x.classList.toggle('on',x===b));render()};$('chips').appendChild(b)});
-$('go').onclick=search;$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;search()};
+$('go').onclick=search;$('idgo').onclick=byId;$('idq').onkeydown=e=>{if(e.key==='Enter')byId()};$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;search()};
 addEventListener('message',e=>{const d=e.data;if(e.source!==window||!d||d.type!=='ADSRADAR_CSV'||typeof d.csv!=='string')return;if(d.nome){$('q').value=d.nome;links(d.nome)}imp(d.csv,d.nome)});$('rate').onchange=render;$('q').onkeydown=e=>{if(e.key==='Enter')search()};
 $('q').value='@minhamarca';search();
 </script>

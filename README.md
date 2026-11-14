@@ -19,6 +19,12 @@ netlify.toml → publish = "site"
 3. Clique no ícone da extensão → **Capturar (rolando a página)**. Repita no outro site para somar Meta + Google.
 4. Cole a URL do seu site Netlify e clique em **Enviar ao dashboard** (ou baixe o CSV e use "Importar dados reais").
 
+## Buscar pelo ID da biblioteca
+- **Meta:** o *ID da biblioteca* aparece em cada anúncio (“ID da biblioteca: 123…”). O *ID da página* está na URL da página do anunciante (`view_all_page_id=`).
+- **Google:** o *ID do anunciante* começa com `AR` e aparece na URL (`/advertiser/AR…`).
+- No dashboard (campo “Buscar por ID”) ou no popup da extensão (“Abrir anunciante pelo ID”) você escolhe o tipo de ID e abre direto a página do anunciante. Depois use **Capturar** e **Enviar ao dashboard**.
+- Na tabela, o número do anúncio da Meta vira link para o anúncio na biblioteca.
+
 ## Limites
 - A Meta e o Google não divulgam gasto de anúncios comerciais: o gasto é estimado (dias no ar × orçamento diário médio por canal). Você pode preencher a coluna `gasto` no CSV quando souber o valor real.
 - O Google mostra só a data da última exibição na lista; os dias no ar de anúncios do Google ficam subestimados.

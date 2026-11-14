@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><style>
 body{width:320px;margin:0;padding:14px;background:#0a0f1c;color:#e8edf7;font:13px system-ui,sans-serif}
 h1{font-size:15px;margin:0 0 10px}h1 b{color:#ff7a1a}
-input,button{width:100%;box-sizing:border-box;margin:4px 0;padding:8px;border-radius:8px;border:1px solid #1f2b45;background:#111a2e;color:#e8edf7;font:inherit}
+select,input,button{width:100%;box-sizing:border-box;margin:4px 0;padding:8px;border-radius:8px;border:1px solid #1f2b45;background:#111a2e;color:#e8edf7;font:inherit}
 button{cursor:pointer}.pri{background:#ff7a1a;border-color:#ff7a1a;color:#fff;font-weight:600}
 .row{display:flex;gap:6px}.mu{color:#8393b3;font-size:12px}label{display:block;margin:6px 0}label input{width:auto;margin-right:6px}
 </style></head><body>
@@ -13,6 +13,9 @@ button{cursor:pointer}.pri{background:#ff7a1a;border-color:#ff7a1a;color:#fff;fo
 <label><input type="checkbox" id="add" checked>Somar com capturas anteriores (Meta + Google)</label>
 <div id="n" class="mu"></div><div id="st" class="mu"></div>
 <div class="row"><button id="dl">Baixar CSV</button><button id="cp">Copiar CSV</button><button id="clr">Limpar</button></div>
+<select id="idt"><option value="auto">ID: detectar sozinho</option><option value="mad">Meta · ID do anúncio</option><option value="mpg">Meta · ID da página/anunciante</option><option value="gadv">Google · ID do anunciante (AR…)</option></select>
+<input id="idq" placeholder="ID da biblioteca ou do anunciante">
+<button id="idgo">Abrir anunciante pelo ID</button>
 <input id="url" placeholder="URL do seu dashboard (https://meusite.netlify.app)">
 <button class="pri" id="send">Enviar ao dashboard</button>
 <script src="popup.js"></script></body></html>

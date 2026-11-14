@@ -26,6 +26,17 @@ $('dl').onclick = () => {
   a.href = URL.createObjectURL(new Blob([csvOf(rows)], {type: 'text/csv'}));
   a.download = 'ads-radar.csv'; a.click();
 };
+$('idgo').onclick = () => {
+  const v = $('idq').value.trim().replace(/\s/g, '');
+  if (!/^[A-Za-z0-9]+$/.test(v)) { $('st').textContent = 'ID inválido.'; return; }
+  let t = $('idt').value; if (t === 'auto') t = /^AR\d+$/i.test(v) ? 'gadv' : 'mpg';
+  const M = 'https://www.facebook.com/ads/library/';
+  const url = t === 'gadv' ? 'https://adstransparency.google.com/advertiser/' + v.toUpperCase() + '?region=BR'
+    : t === 'mad' ? M + '?id=' + v
+    : M + '?active_status=all&ad_type=all&country=BR&view_all_page_id=' + v + '&search_type=page&media_type=all';
+  if (!$('nome').value) $('nome').value = 'ID ' + v;
+  save(); chrome.tabs.create({url});
+};
 $('send').onclick = async () => {
   let u; try { u = new URL($('url').value.trim()); } catch { $('st').textContent = 'URL do dashboard inválida.'; return; }
   if (!rows.length) { $('st').textContent = 'Capture anúncios antes de enviar.'; return; }
