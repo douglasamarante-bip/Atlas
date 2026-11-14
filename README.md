@@ -1,9 +1,9 @@
-# Ads Radar
+# Atlas
 
 Dashboard de anúncios (Meta + Google) em site estático + extensão de Chrome que captura os anúncios reais.
 
 ```
-site/        → o dashboard (Netlify publica esta pasta)
+site/        → o dashboard Atlas (Netlify publica esta pasta)
 extension/   → extensão do Chrome (captura e envia ao dashboard)
 netlify.toml → publish = "site"
 ```

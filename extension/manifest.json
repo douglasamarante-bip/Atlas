@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Ads Radar – Captura de anúncios",
+  "name": "Atlas – Captura de anúncios",
   "version": "1.0.0",
-  "description": "Captura anúncios da Biblioteca de Anúncios da Meta e do Centro de Transparência do Google e envia ao seu dashboard Ads Radar.",
+  "description": "Captura anúncios da Biblioteca de Anúncios da Meta e do Centro de Transparência do Google e envia ao seu dashboard Atlas.",
   "permissions": ["activeTab", "scripting", "storage"],
   "optional_host_permissions": ["https://*/*"],
   "host_permissions": ["https://www.facebook.com/ads/library/*", "https://adstransparency.google.com/*"],
@@ -12,5 +12,6 @@
     "js": ["content.js"],
     "run_at": "document_idle"
   }],
-  "action": { "default_popup": "popup.html", "default_title": "Ads Radar" }
+  "icons": {"16":"icons/16.png","48":"icons/48.png","128":"icons/128.png"},
+  "action": { "default_popup": "popup.html", "default_title": "Atlas", "default_icon": {"16":"icons/16.png","48":"icons/48.png"} }
 }
