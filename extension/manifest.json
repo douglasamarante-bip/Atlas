@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Ads Radar – Captura de anúncios",
+  "version": "1.0.0",
+  "description": "Captura anúncios da Biblioteca de Anúncios da Meta e do Centro de Transparência do Google e envia ao seu dashboard Ads Radar.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "optional_host_permissions": ["https://*/*"],
+  "host_permissions": ["https://www.facebook.com/ads/library/*", "https://adstransparency.google.com/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{
+    "matches": ["https://www.facebook.com/ads/library/*", "https://adstransparency.google.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }],
+  "action": { "default_popup": "popup.html", "default_title": "Ads Radar" }
+}

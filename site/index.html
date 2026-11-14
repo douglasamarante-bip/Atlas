@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ads Radar – Dashboard de Anúncios</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#0a0f1c;--card:#111a2e;--line:#1f2b45;--tx:#e8edf7;--mu:#8393b3;--or:#ff7a1a;--bl:#3b82f6;--cy:#22d3ee;--gr:#22c55e;--rd:#ef4444}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef2f8;--card:#fff;--line:#d9e1ee;--tx:#0f1a2e;--mu:#5b6b88}}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.app{display:flex;min-height:100%}
+aside{width:190px;padding:16px 12px;border-right:1px solid var(--line);flex:none}
+.logo{font-weight:800;font-size:16px;margin-bottom:2px}.logo b{color:var(--or)}
+.sub{color:var(--mu);font-size:10px;letter-spacing:.12em;margin-bottom:18px}
+.nav{padding:9px 10px;border-radius:8px;color:var(--mu);margin-bottom:4px;font-size:13px}
+.nav.on{background:var(--or);color:#fff;font-weight:600}
+main{flex:1;min-width:0;padding:16px}
+h1{font-size:18px;margin:0 0 2px}.mu{color:var(--mu);font-size:12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+input,select,textarea,button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+#q{flex:1;min-width:200px}
+button{cursor:pointer}button.pri{background:var(--or);border-color:var(--or);color:#fff;font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{padding:6px 12px;border-radius:99px;font-size:12px}.chip.on{background:var(--bl);border-color:var(--bl);color:#fff}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.k{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em}
+.v{font-size:22px;font-weight:800;margin:4px 0 2px}.v.or{color:var(--or)}
+.row{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.cv{position:relative;height:220px}
+.sc{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:520px}
+th{color:var(--mu);text-align:left;font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid var(--line)}
+.tag{padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.on-t{background:#22c55e22;color:var(--gr)}.off-t{background:#8393b322;color:var(--mu)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.links a{color:var(--cy);margin-right:14px;font-size:12px}
+details{margin-bottom:12px}summary{cursor:pointer;color:var(--cy)}
+textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,monospace;font-size:12px}
+.warn{border-left:3px solid var(--or)}
+@media(max-width:760px){aside{display:none}main{padding:12px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+<div class="logo">ADS <b>RADAR</b></div><div class="sub">INTELIGÊNCIA DE ANÚNCIOS</div>
+<div class="nav on">Painel geral</div><div class="nav">Meta Ads</div><div class="nav">Google Ads</div><div class="nav">Criativos</div><div class="nav">Linha do tempo</div>
+</aside>
+<main>
+<h1>Painel de Anúncios – <span id="title">—</span></h1>
+<div class="mu" id="meta"></div>
+<div class="bar">
+<input id="q" placeholder="Pesquisar nome, @perfil ou marca (ex.: @nike, Casas Bahia)" autocomplete="off">
+<button class="pri" id="go">Pesquisar</button>
+<select id="rate" title="Gasto diário estimado por anúncio">
+<option value="0.7">Orçamento diário: baixo</option><option value="1" selected>Orçamento diário: médio</option><option value="1.8">Orçamento diário: alto</option>
+</select>
+</div>
+<div class="links" id="links"></div>
+<div class="chips" id="chips"></div>
+
+<div class="grid kpis" id="kpis"></div>
+<div class="grid row">
+<div class="card"><h3>Gasto estimado por mês (R$)</h3><div class="cv"><canvas id="c1"></canvas></div></div>
+<div class="card"><h3>Participação por canal</h3><div class="cv"><canvas id="c2"></canvas></div></div>
+</div>
+<div class="grid row">
+<div class="card"><h3>Anúncios por formato</h3><div class="cv"><canvas id="c3"></canvas></div></div>
+<div class="card"><h3>Anúncios lançados por mês</h3><div class="cv"><canvas id="c4"></canvas></div></div>
+</div>
+<div class="card sc" style="margin-bottom:12px"><h3>Anúncios com maior gasto estimado</h3><table id="tb"></table></div>
+
+<details class="card"><summary>Importar dados reais (CSV)</summary>
+<p class="mu">Abra a Biblioteca de Anúncios da Meta ou o Centro de Transparência do Google, copie os dados e cole abaixo, uma linha por anúncio:<br><code>canal;anuncio;formato;inicio;fim;gasto</code> – canal: Facebook, Instagram, YouTube ou Google. Fim e gasto podem ficar vazios (fim vazio = ativo; gasto vazio = estimado).</p>
+<textarea id="csv" placeholder="Instagram;Promo de Páscoa;Vídeo;2026-03-01;2026-03-20;350&#10;Google;Busca marca;Texto;2026-05-10;;"></textarea>
+<div class="bar"><button class="pri" id="imp">Carregar dados</button><button id="reset" style="display:none">Voltar ao modo demonstração</button></div>
+</details>
+<div class="card warn mu" id="warn"></div>
+</main>
+</div>
+<script>
+const CH={Facebook:{p:'Meta',c:'#3b82f6',r:22},Instagram:{p:'Meta',c:'#ff7a1a',r:28},YouTube:{p:'Google',c:'#ef4444',r:35},Google:{p:'Google',c:'#22d3ee',r:30},Meta:{p:'Meta',c:'#60a5fa',r:25}};
+const FM=['Imagem','Vídeo','Carrossel','Stories/Reels','Texto'];
+const DAY=864e5,TODAY=new Date(new Date().toDateString());
+let ADS=[],NAME='',PF='Todos',charts={},IMPORTED=false;
+const $=id=>document.getElementById(id);
+const brl=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
+const fd=d=>d.toISOString().slice(0,10);
+function rng(s){let h=2166136261;for(const ch of s){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return()=>{h^=h<<13;h^=h>>>17;h^=h<<5;return((h>>>0)%100000)/100000}}
+function demo(name){const r=rng(name.toLowerCase()),n=14+Math.floor(r()*22),ks=Object.keys(CH),a=[];
+for(let i=0;i<n;i++){const k=ks[Math.floor(r()*4)],st=new Date(TODAY-Math.floor(r()*r()*260+3)*DAY),act=r()<.4;
+let en=null;if(!act){en=new Date(+st+(5+Math.floor(r()*70))*DAY);if(en>TODAY)en=TODAY}
+a.push({canal:k,nome:'Criativo '+(i+1)+' – '+name,fmt:FM[Math.floor(r()*5)],ini:st,fim:en,gasto:null})}return a}
+function calc(){return ADS.filter(a=>PF==='Todos'||CH[a.canal].p===PF).map(a=>{const e=a.fim||TODAY,d=Math.max(1,Math.round((e-a.ini)/DAY)+1);
+return{...a,dias:d,ativo:!a.fim,est:a.gasto!=null?a.gasto:d*CH[a.canal].r*parseFloat($('rate').value)}})}
+function mk(id,cfg){if(charts[id])charts[id].destroy();Chart.defaults.color='#8393b3';charts[id]=new Chart($(id),cfg)}
+const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'#8393b322'}}}};
+const WD='<b>Modo demonstração.</b> Os dados da pesquisa são simulados até você importar os reais (extensão Ads Radar ou CSV). Meta e Google não divulgam o gasto de anúncios comerciais: o valor é estimado (dias no ar × orçamento diário médio por canal).';
+const WI='<b>Dados importados.</b> O gasto é estimado (dias no ar × orçamento diário médio por canal), exceto onde a coluna gasto foi preenchida. Anúncios do Google trazem apenas a data da última exibição, então os dias no ar deles são subestimados.';
+function render(){const L=calc();$('warn').innerHTML=IMPORTED?WI:WD;$('reset').style.display=IMPORTED?'':'none';$('title').textContent=NAME||'—';
+const tot=L.reduce((s,a)=>s+a.est,0),act=L.filter(a=>a.ativo).length,avg=L.length?L.reduce((s,a)=>s+a.dias,0)/L.length:0;
+const first=L.length?Math.min(...L.map(a=>a.ini)):TODAY,el=Math.round((TODAY-first)/DAY),big=L.length?Math.max(...L.map(a=>a.dias)):0;
+$('meta').textContent=L.length+' anúncios encontrados · atualizado em '+TODAY.toLocaleDateString('pt-BR');
+$('kpis').innerHTML=[['Gasto total aprox.',brl(tot),'or'],['Nº de anúncios',L.length,''],['Ativos agora',act+' ('+(L.length?Math.round(act/L.length*100):0)+'%)',''],['Média de dias no ar',avg.toFixed(1)+' d',''],['Dias decorridos',el+' d',''],['Anúncio mais longo',big+' d','']].map(x=>`<div class="card"><div class="k">${x[0]}</div><div class="v ${x[2]}">${x[1]}</div></div>`).join('');
+const mo={};L.forEach(a=>{let d=new Date(a.ini.getFullYear(),a.ini.getMonth(),1);const e=a.fim||TODAY,per=a.est/a.dias;
+for(let t=+a.ini;t<=+e;t+=DAY){const k=new Date(t).toISOString().slice(0,7);mo[k]=mo[k]||{s:0,n:0};mo[k].s+=per}
+const k2=fd(a.ini).slice(0,7);mo[k2]=mo[k2]||{s:0,n:0};mo[k2].n++});
+const ks=Object.keys(mo).sort(),lb=ks.map(k=>k.slice(5)+'/'+k.slice(2,4));
+mk('c1',{type:'line',data:{labels:lb,datasets:[{data:ks.map(k=>Math.round(mo[k].s)),borderColor:'#ff7a1a',backgroundColor:'#ff7a1a33',fill:true,tension:.35,pointRadius:3}]},options:base});
+mk('c4',{type:'bar',data:{labels:lb,datasets:[{data:ks.map(k=>mo[k].n),backgroundColor:'#3b82f6',borderRadius:4}]},options:base});
+const cs=Object.keys(CH).filter(c=>L.some(a=>a.canal===c)),sp=cs.map(c=>L.filter(a=>a.canal===c).reduce((s,a)=>s+a.est,0));
+mk('c2',{type:'doughnut',data:{labels:cs,datasets:[{data:sp.map(Math.round),backgroundColor:cs.map(c=>CH[c].c),borderColor:'transparent'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#8393b3',boxWidth:10}}}}});
+const fs=FM.map(f=>L.filter(a=>a.fmt===f).length);
+mk('c3',{type:'bar',data:{labels:FM,datasets:[{data:fs,backgroundColor:['#ff7a1a','#3b82f6','#22d3ee','#22c55e','#a78bfa'],borderRadius:4}]},options:{...base,indexAxis:'y'}});
+$('tb').innerHTML='<tr><th>Anúncio</th><th>Canal</th><th>Formato</th><th>Início</th><th>Dias no ar</th><th>Gasto aprox.</th><th>Status</th></tr>'+
+L.slice().sort((a,b)=>b.est-a.est).slice(0,12).map(a=>`<tr><td>${esc(a.nome)}</td><td><span class="dot" style="background:${CH[a.canal].c}"></span>${a.canal}</td><td>${a.fmt}</td><td>${a.ini.toLocaleDateString('pt-BR')}</td><td>${a.dias}</td><td><b>${brl(a.est)}</b></td><td><span class="tag ${a.ativo?'on-t':'off-t'}">${a.ativo?'Ativo':'Encerrado'}</span></td></tr>`).join('')}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function links(v){const e=encodeURIComponent(v.replace(/^@/,''));
+$('links').innerHTML=`<a target="_blank" rel="noopener" href="https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=BR&q=${e}&search_type=keyword_unordered">Abrir na Biblioteca de Anúncios da Meta ↗</a><a target="_blank" rel="noopener" href="https://adstransparency.google.com/?region=BR">Abrir no Centro de Transparência do Google ↗</a>`}
+function search(){const v=$('q').value.trim();if(!v)return;NAME=v;links(v);if(!IMPORTED)ADS=demo(v);render()}
+function imp(txt,nm){const rows=(typeof txt==='string'?txt:$('csv').value).split(/\n/).map(l=>l.trim()).filter(Boolean),out=[];
+for(const l of rows){const c=l.split(/;|,/).map(x=>x.trim()),k=Object.keys(CH).find(x=>x.toLowerCase()===(c[0]||'').toLowerCase()),ini=new Date(c[3]);
+if(!k||isNaN(ini))continue;const fim=c[4]?new Date(c[4]):null,g=c[5]?parseFloat(c[5].replace(',','.')):null;
+out.push({canal:k,nome:c[1]||'Anúncio',fmt:c[2]||'Imagem',ini,fim:fim&&!isNaN(fim)?fim:null,gasto:isNaN(g)?null:g})}
+if(!out.length){alert('Nenhuma linha válida. Use: canal;anuncio;formato;AAAA-MM-DD;AAAA-MM-DD;gasto');return}
+ADS=out;IMPORTED=true;if(nm)NAME=nm;NAME=NAME||'Dados importados';render()}
+['Todos','Meta','Google'].forEach(p=>{const b=document.createElement('button');b.className='chip'+(p===PF?' on':'');b.textContent=p==='Todos'?'Todas as plataformas':p==='Meta'?'Meta (Facebook + Instagram)':'Google (YouTube + Pesquisa)';
+b.onclick=()=>{PF=p;[...$('chips').children].forEach(x=>x.classList.toggle('on',x===b));render()};$('chips').appendChild(b)});
+$('go').onclick=search;$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;search()};
+addEventListener('message',e=>{const d=e.data;if(e.source!==window||!d||d.type!=='ADSRADAR_CSV'||typeof d.csv!=='string')return;if(d.nome){$('q').value=d.nome;links(d.nome)}imp(d.csv,d.nome)});$('rate').onchange=render;$('q').onkeydown=e=>{if(e.key==='Enter')search()};
+$('q').value='@minhamarca';search();
+</script>
+</body>
+</html>
