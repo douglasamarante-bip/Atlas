@@ -93,7 +93,7 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 const CH={Facebook:{p:'Meta',c:'#3b82f6',r:22},Instagram:{p:'Meta',c:'#ff7a1a',r:28},YouTube:{p:'Google',c:'#ef4444',r:35},Google:{p:'Google',c:'#22d3ee',r:30},Meta:{p:'Meta',c:'#60a5fa',r:25}};
 const FM=['Imagem','Vídeo','Carrossel','Stories/Reels','Texto'];
 const DAY=864e5,TODAY=new Date(new Date().toDateString());
-let ADS=[],NAME='',PF='Todos',charts={},IMPORTED=false;
+let ADS=[],NAME='',PF='Todos',charts={},IMPORTED=false,LIVE=false,CACHE={};
 const $=id=>document.getElementById(id);
 const brl=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
 const fd=d=>d.toISOString().slice(0,10);
@@ -108,7 +108,8 @@ function mk(id,cfg){if(charts[id])charts[id].destroy();Chart.defaults.color='#83
 const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'#8393b322'}}}};
 const WD='<b>Modo demonstração.</b> Os dados da pesquisa são simulados até você importar os reais (extensão Atlas ou CSV). Meta e Google não divulgam o gasto de anúncios comerciais: o valor é estimado (dias no ar × orçamento diário médio por canal).';
 const WI='<b>Dados importados.</b> O gasto é estimado (dias no ar × orçamento diário médio por canal), exceto onde a coluna gasto foi preenchida. Anúncios do Google trazem apenas a data da última exibição, então os dias no ar deles são subestimados.';
-function render(){const L=calc();$('warn').innerHTML=IMPORTED?WI:WD;$('reset').style.display=IMPORTED?'':'none';$('title').textContent=NAME||'—';
+const WL='<b>Dados reais</b> da Biblioteca de Anúncios da Meta e do Centro de Transparência do Google (via SearchAPI). O gasto continua sendo uma estimativa (dias no ar × orçamento diário médio por canal): as plataformas não divulgam o valor de anúncios comerciais.';
+function render(){const L=calc();$('warn').innerHTML=LIVE?WL:IMPORTED?WI:WD;$('reset').style.display=IMPORTED?'':'none';$('title').textContent=NAME||'—';
 const tot=L.reduce((s,a)=>s+a.est,0),act=L.filter(a=>a.ativo).length,avg=L.length?L.reduce((s,a)=>s+a.dias,0)/L.length:0;
 const first=L.length?Math.min(...L.map(a=>a.ini)):TODAY,el=Math.round((TODAY-first)/DAY),big=L.length?Math.max(...L.map(a=>a.dias)):0;
 $('meta').textContent=L.length+' anúncios encontrados · atualizado em '+TODAY.toLocaleDateString('pt-BR');
@@ -124,7 +125,7 @@ mk('c2',{type:'doughnut',data:{labels:cs,datasets:[{data:sp.map(Math.round),back
 const fs=FM.map(f=>L.filter(a=>a.fmt===f).length);
 mk('c3',{type:'bar',data:{labels:FM,datasets:[{data:fs,backgroundColor:['#ff7a1a','#3b82f6','#22d3ee','#22c55e','#a78bfa'],borderRadius:4}]},options:{...base,indexAxis:'y'}});
 $('tb').innerHTML='<tr><th>Anúncio</th><th>Canal</th><th>Formato</th><th>Início</th><th>Dias no ar</th><th>Gasto aprox.</th><th>Status</th></tr>'+
-L.slice().sort((a,b)=>b.est-a.est).slice(0,12).map(a=>`<tr><td>${lk(a.nome)}</td><td><span class="dot" style="background:${CH[a.canal].c}"></span>${a.canal}</td><td>${a.fmt}</td><td>${a.ini.toLocaleDateString('pt-BR')}</td><td>${a.dias}</td><td><b>${brl(a.est)}</b></td><td><span class="tag ${a.ativo?'on-t':'off-t'}">${a.ativo?'Ativo':'Encerrado'}</span></td></tr>`).join('')}
+L.slice().sort((a,b)=>b.est-a.est).slice(0,12).map(a=>`<tr><td>${a.link&&/^https:\/\//.test(a.link)?`<a style="color:var(--cy)" target="_blank" rel="noopener" href="${esc(a.link)}">${esc(a.nome)}</a>`:lk(a.nome)}</td><td><span class="dot" style="background:${CH[a.canal].c}"></span>${a.canal}</td><td>${a.fmt}</td><td>${a.ini.toLocaleDateString('pt-BR')}</td><td>${a.dias}</td><td><b>${brl(a.est)}</b></td><td><span class="tag ${a.ativo?'on-t':'off-t'}">${a.ativo?'Ativo':'Encerrado'}</span></td></tr>`).join('')}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function links(v){const e=encodeURIComponent(v.replace(/^@/,''));
 $('links').innerHTML=`<a target="_blank" rel="noopener" href="https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=BR&q=${e}&search_type=keyword_unordered">Abrir na Biblioteca de Anúncios da Meta ↗</a><a target="_blank" rel="noopener" href="https://adstransparency.google.com/?region=BR">Abrir no Centro de Transparência do Google ↗</a>`}
@@ -135,22 +136,43 @@ if(t==='mad'||t==='meta')L.push(['Meta · abrir o anúncio (ID da biblioteca)',M
 if(t==='mpg'||t==='meta')L.push(['Meta · todos os anúncios deste anunciante (ID da página)',M+'?active_status=all&ad_type=all&country=BR&view_all_page_id='+v+'&search_type=page&media_type=all']);
 if(t==='gadv')L.push(['Google · página do anunciante','https://adstransparency.google.com/advertiser/'+v.toUpperCase()+'?region=BR']);
 return L.length?L:null}
-function byId(){const v=$('idq').value.trim().replace(/\s/g,'');if(!v)return;const L=idLinks(v,$('idt').value);
+async function byId(){const v=$('idq').value.trim().replace(/\s/g,'');if(!v)return;const L=idLinks(v,$('idt').value);
 if(!L){$('links').innerHTML='<span class="mu">ID não reconhecido. Use só números (Meta) ou o código AR… do anunciante (Google). O ID de criativo CR… só funciona junto com o AR….</span>';return}
 NAME='ID '+v;$('q').value='';
 $('links').innerHTML=L.map(x=>`<a target="_blank" rel="noopener" href="${x[1]}">${x[0]} ↗</a>`).join('')+'<br><span class="mu">Abra o link, deixe os anúncios na tela e use a extensão Atlas para capturar e enviar para cá.</span>';
+if(await live({id:v,type:$('idt').value},NAME))return;
 if(!IMPORTED)ADS=demo(NAME);render()}
 const lk=n=>{const m=String(n).match(/^(.*?)\s*·\s*(\d{6,})$/);return m?`${esc(m[1])} · <a style="color:var(--cy)" target="_blank" rel="noopener" href="https://www.facebook.com/ads/library/?id=${m[2]}">${m[2]}</a>`:esc(n)};
-function search(){const v=$('q').value.trim();if(!v)return;NAME=v;links(v);if(!IMPORTED)ADS=demo(v);render()}
+const API='/.netlify/functions/ads';
+const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v)}catch(e){return ''}};
+function applyLive(j,label){ADS=j.rows.map(a=>({canal:a.canal,nome:a.nome,fmt:a.fmt,ini:new Date(a.ini+'T00:00:00'),fim:a.fim?new Date(a.fim+'T00:00:00'):null,gasto:null,link:a.link||''}));
+IMPORTED=true;LIVE=true;NAME=j.name||label||NAME;render();
+const who=[j.meta&&'Meta: '+j.meta.name,j.google&&'Google: '+j.google.name].filter(Boolean).join(' | ');
+$('meta').textContent+=(who?' · '+who:'')+((j.notes||[]).length?' · '+j.notes.join(' · '):'');
+const c=(j.candidates||[]).filter(x=>x.id!==(j.meta&&j.meta.id)&&x.id!==(j.google&&j.google.id));
+$('links').insertAdjacentHTML('beforeend',c.length?'<br><span class="mu">Não é este? Outros anunciantes: </span>'+c.map(x=>`<a href="#" data-id="${esc(x.id)}" data-t="${x.plat==='Meta'?'mpg':'gadv'}">${esc(x.name)} (${x.plat})</a>`).join(''):'');
+$('links').querySelectorAll('a[data-id]').forEach(a=>a.onclick=e=>{e.preventDefault();$('idt').value=a.dataset.t;$('idq').value=a.dataset.id;byId()})}
+async function live(params,label){const key=JSON.stringify(params);
+if(CACHE[key]){applyLive(CACHE[key],label);return true}
+$('meta').textContent='Buscando anúncios reais…';
+try{const code=ls('atlas-code'),r=await fetch(API+'?'+new URLSearchParams(params),{headers:code?{'x-atlas-code':code}:{}});
+if(r.status===401){const c=prompt('Código de acesso do Atlas:');if(c){ls('atlas-code',c);return live(params,label)}$('meta').textContent='Código de acesso necessário.';return true}
+if(r.status===404)return false;
+const j=await r.json().catch(()=>null);if(!j)return false;
+if(!r.ok){$('meta').textContent='Erro: '+(j.error||r.status);return true}
+CACHE[key]=j;applyLive(j,label);return true}catch(e){return false}}
+async function search(){const v=$('q').value.trim();if(!v)return;NAME=v;links(v);
+if(await live({q:v.replace(/^@/,'')},v))return;
+if(!IMPORTED)ADS=demo(v);render()}
 function imp(txt,nm){const rows=(typeof txt==='string'?txt:$('csv').value).split(/\n/).map(l=>l.trim()).filter(Boolean),out=[];
 for(const l of rows){const c=l.split(/;|,/).map(x=>x.trim()),k=Object.keys(CH).find(x=>x.toLowerCase()===(c[0]||'').toLowerCase()),ini=new Date(c[3]);
 if(!k||isNaN(ini))continue;const fim=c[4]?new Date(c[4]):null,g=c[5]?parseFloat(c[5].replace(',','.')):null;
 out.push({canal:k,nome:c[1]||'Anúncio',fmt:c[2]||'Imagem',ini,fim:fim&&!isNaN(fim)?fim:null,gasto:isNaN(g)?null:g})}
 if(!out.length){alert('Nenhuma linha válida. Use: canal;anuncio;formato;AAAA-MM-DD;AAAA-MM-DD;gasto');return}
-ADS=out;IMPORTED=true;if(nm)NAME=nm;NAME=NAME||'Dados importados';render()}
+ADS=out;IMPORTED=true;LIVE=false;if(nm)NAME=nm;NAME=NAME||'Dados importados';render()}
 ['Todos','Meta','Google'].forEach(p=>{const b=document.createElement('button');b.className='chip'+(p===PF?' on':'');b.textContent=p==='Todos'?'Todas as plataformas':p==='Meta'?'Meta (Facebook + Instagram)':'Google (YouTube + Pesquisa)';
 b.onclick=()=>{PF=p;[...$('chips').children].forEach(x=>x.classList.toggle('on',x===b));render()};$('chips').appendChild(b)});
-$('go').onclick=search;$('idgo').onclick=byId;$('idq').onkeydown=e=>{if(e.key==='Enter')byId()};$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;search()};
+$('go').onclick=search;$('idgo').onclick=byId;$('idq').onkeydown=e=>{if(e.key==='Enter')byId()};$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;LIVE=false;search()};
 addEventListener('message',e=>{const d=e.data;if(e.source!==window||!d||d.type!=='ADSRADAR_CSV'||typeof d.csv!=='string')return;if(d.nome){$('q').value=d.nome;links(d.nome)}imp(d.csv,d.nome)});$('rate').onchange=render;$('q').onkeydown=e=>{if(e.key==='Enter')search()};
 $('q').value='@minhamarca';search();
 </script>

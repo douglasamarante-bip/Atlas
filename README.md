@@ -5,6 +5,7 @@ Dashboard de anúncios (Meta + Google) em site estático + extensão de Chrome q
 ```
 site/        → o dashboard Atlas (Netlify publica esta pasta)
 extension/   → extensão do Chrome (captura e envia ao dashboard)
+netlify/functions/ads.js → busca anúncios reais (Meta + Google) via SearchAPI
 netlify.toml → publish = "site"
 ```
 
@@ -12,6 +13,17 @@ netlify.toml → publish = "site"
 1. Crie um repositório no GitHub e suba tudo (`git add . && git commit -m "ads radar" && git push`).
 2. Netlify → Add new site → Import an existing project → GitHub → escolha o repositório.
 3. Build command: vazio. O `netlify.toml` já aponta a publicação para `site/`. Deploy.
+
+## 1b. Ligar a busca de dados reais (SearchAPI)
+A busca por nome/@/ID usa a função `netlify/functions/ads.js`, que consulta a [SearchAPI.io](https://www.searchapi.io) (Meta Ad Library + Google Ads Transparency Center). A chave fica só no servidor.
+1. Crie uma conta na SearchAPI e copie sua chave de API.
+2. Netlify → Site configuration → Environment variables, crie:
+   - `SEARCHAPI_KEY` – sua chave (obrigatória)
+   - `ATLAS_ACCESS_CODE` – um código de acesso à sua escolha (recomendado: sem ele, qualquer pessoa com o link gasta seus créditos). O dashboard pede esse código na primeira busca.
+   - `META_COUNTRY` (padrão `BR`) e `GOOGLE_REGION` (padrão `BR`, se não for aceito usa `anywhere`) – opcionais.
+3. Faça um novo deploy (Deploys → Trigger deploy). Pronto: digite um nome e os anúncios reais aparecem.
+Cada busca gasta cerca de 6 a 9 créditos da SearchAPI (nome do anunciante, anúncios e divisão YouTube/Google). O resultado fica em cache por 5 minutos no navegador.
+Sem a função (ou sem a chave), o dashboard continua funcionando em modo demonstração, extensão e CSV.
 
 ## 2. Instalar a extensão
 1. Chrome → `chrome://extensions` → ative **Modo do desenvolvedor** → **Carregar sem compactação** → selecione a pasta `extension/`.
