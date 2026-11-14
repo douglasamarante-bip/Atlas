@@ -130,6 +130,6 @@ exports.handler = async (event) => {
     google: g && g.id ? {name: g.name, id: g.id} : null,
     candidates: res.flatMap(r => r.cands || []),
     notes: res.map(r => r.note).filter(Boolean),
-    count: rows.length, rows
+    count: rows.length, rows, source: 'SearchAPI'
   });
 };

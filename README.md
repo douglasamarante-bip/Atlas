@@ -5,6 +5,7 @@ Dashboard de anúncios (Meta + Google) em site estático + extensão de Chrome q
 ```
 site/        → o dashboard Atlas (Netlify publica esta pasta)
 extension/   → extensão do Chrome (captura e envia ao dashboard)
+collector/    → coletor próprio (Playwright + Docker), alternativa à SearchAPI
 netlify/functions/ads.js → busca anúncios reais (Meta + Google) via SearchAPI
 netlify.toml → publish = "site"
 ```
@@ -24,6 +25,13 @@ A busca por nome/@/ID usa a função `netlify/functions/ads.js`, que consulta a 
 3. Faça um novo deploy (Deploys → Trigger deploy). Pronto: digite um nome e os anúncios reais aparecem.
 Cada busca gasta cerca de 6 a 9 créditos da SearchAPI (nome do anunciante, anúncios e divisão YouTube/Google). O resultado fica em cache por 5 minutos no navegador.
 Sem a função (ou sem a chave), o dashboard continua funcionando em modo demonstração, extensão e CSV.
+
+## 1c. Coletor próprio (alternativa à SearchAPI, sem mensalidade de API)
+O `collector/` faz o mesmo trabalho da SearchAPI: abre a Biblioteca de Anúncios da Meta e o Centro de Transparência do Google num Chrome no servidor, lê os dados e devolve o mesmo JSON. Não roda no Netlify (precisa de navegador e leva 30–60 s por busca), então fica num servidor com Docker.
+1. Crie um serviço Docker a partir deste repositório (Render, Railway, Fly.io ou um VPS), com **Root Directory = `collector`**. Reserve pelo menos 1 GB de RAM.
+2. Variáveis: `ATLAS_ACCESS_CODE` (o mesmo código do dashboard) e, opcionais, `META_COUNTRY`, `GOOGLE_REGION`, `ALLOW_ORIGIN` (ex.: `https://seusite.netlify.app`) e `PROXY_URL` (`http://usuario:senha@host:porta`).
+3. Abra `site/config.js` e coloque `window.ATLAS_API = 'https://SEU-COLETOR/ads';`. Faça commit: o Netlify atualiza o site.
+Avisos: (a) a Meta e o Google leem anúncios por páginas que mudam sem aviso, então o coletor pode quebrar e precisar de ajuste; (b) servidores de datacenter costumam ser bloqueados ou receber captcha, e é para isso que a SearchAPI cobra proxies: se acontecer, use `PROXY_URL` com proxy residencial; (c) a coleta automatizada pode contrariar os termos de uso das plataformas: use com volume baixo e por sua conta e risco.
 
 ## 2. Instalar a extensão
 1. Chrome → `chrome://extensions` → ative **Modo do desenvolvedor** → **Carregar sem compactação** → selecione a pasta `extension/`.

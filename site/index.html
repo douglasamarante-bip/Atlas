@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Atlas – Mapa de Anúncios</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
@@ -93,7 +94,7 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 const CH={Facebook:{p:'Meta',c:'#3b82f6',r:22},Instagram:{p:'Meta',c:'#ff7a1a',r:28},YouTube:{p:'Google',c:'#ef4444',r:35},Google:{p:'Google',c:'#22d3ee',r:30},Meta:{p:'Meta',c:'#60a5fa',r:25}};
 const FM=['Imagem','Vídeo','Carrossel','Stories/Reels','Texto'];
 const DAY=864e5,TODAY=new Date(new Date().toDateString());
-let ADS=[],NAME='',PF='Todos',charts={},IMPORTED=false,LIVE=false,CACHE={};
+let ADS=[],NAME='',PF='Todos',charts={},IMPORTED=false,LIVE=false,CACHE={},SRC='';
 const $=id=>document.getElementById(id);
 const brl=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
 const fd=d=>d.toISOString().slice(0,10);
@@ -108,8 +109,8 @@ function mk(id,cfg){if(charts[id])charts[id].destroy();Chart.defaults.color='#83
 const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'#8393b322'}}}};
 const WD='<b>Modo demonstração.</b> Os dados da pesquisa são simulados até você importar os reais (extensão Atlas ou CSV). Meta e Google não divulgam o gasto de anúncios comerciais: o valor é estimado (dias no ar × orçamento diário médio por canal).';
 const WI='<b>Dados importados.</b> O gasto é estimado (dias no ar × orçamento diário médio por canal), exceto onde a coluna gasto foi preenchida. Anúncios do Google trazem apenas a data da última exibição, então os dias no ar deles são subestimados.';
-const WL='<b>Dados reais</b> da Biblioteca de Anúncios da Meta e do Centro de Transparência do Google (via SearchAPI). O gasto continua sendo uma estimativa (dias no ar × orçamento diário médio por canal): as plataformas não divulgam o valor de anúncios comerciais.';
-function render(){const L=calc();$('warn').innerHTML=LIVE?WL:IMPORTED?WI:WD;$('reset').style.display=IMPORTED?'':'none';$('title').textContent=NAME||'—';
+const WL=f=>'<b>Dados reais</b> da Biblioteca de Anúncios da Meta e do Centro de Transparência do Google (via '+f+'). O gasto continua sendo uma estimativa (dias no ar × orçamento diário médio por canal): as plataformas não divulgam o valor de anúncios comerciais.';
+function render(){const L=calc();$('warn').innerHTML=LIVE?WL(SRC):IMPORTED?WI:WD;$('reset').style.display=IMPORTED?'':'none';$('title').textContent=NAME||'—';
 const tot=L.reduce((s,a)=>s+a.est,0),act=L.filter(a=>a.ativo).length,avg=L.length?L.reduce((s,a)=>s+a.dias,0)/L.length:0;
 const first=L.length?Math.min(...L.map(a=>a.ini)):TODAY,el=Math.round((TODAY-first)/DAY),big=L.length?Math.max(...L.map(a=>a.dias)):0;
 $('meta').textContent=L.length+' anúncios encontrados · atualizado em '+TODAY.toLocaleDateString('pt-BR');
@@ -143,10 +144,10 @@ $('links').innerHTML=L.map(x=>`<a target="_blank" rel="noopener" href="${x[1]}">
 if(await live({id:v,type:$('idt').value},NAME))return;
 if(!IMPORTED)ADS=demo(NAME);render()}
 const lk=n=>{const m=String(n).match(/^(.*?)\s*·\s*(\d{6,})$/);return m?`${esc(m[1])} · <a style="color:var(--cy)" target="_blank" rel="noopener" href="https://www.facebook.com/ads/library/?id=${m[2]}">${m[2]}</a>`:esc(n)};
-const API='/.netlify/functions/ads';
+const API=window.ATLAS_API||'/.netlify/functions/ads';
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v)}catch(e){return ''}};
 function applyLive(j,label){ADS=j.rows.map(a=>({canal:a.canal,nome:a.nome,fmt:a.fmt,ini:new Date(a.ini+'T00:00:00'),fim:a.fim?new Date(a.fim+'T00:00:00'):null,gasto:null,link:a.link||''}));
-IMPORTED=true;LIVE=true;NAME=j.name||label||NAME;render();
+IMPORTED=true;LIVE=true;SRC=j.source||'serviço de coleta';NAME=j.name||label||NAME;render();
 const who=[j.meta&&'Meta: '+j.meta.name,j.google&&'Google: '+j.google.name].filter(Boolean).join(' | ');
 $('meta').textContent+=(who?' · '+who:'')+((j.notes||[]).length?' · '+j.notes.join(' · '):'');
 const c=(j.candidates||[]).filter(x=>x.id!==(j.meta&&j.meta.id)&&x.id!==(j.google&&j.google.id));
@@ -154,7 +155,7 @@ $('links').insertAdjacentHTML('beforeend',c.length?'<br><span class="mu">Não é
 $('links').querySelectorAll('a[data-id]').forEach(a=>a.onclick=e=>{e.preventDefault();$('idt').value=a.dataset.t;$('idq').value=a.dataset.id;byId()})}
 async function live(params,label){const key=JSON.stringify(params);
 if(CACHE[key]){applyLive(CACHE[key],label);return true}
-$('meta').textContent='Buscando anúncios reais…';
+$('meta').textContent='Buscando anúncios reais… (pode levar até 1 minuto)';
 try{const code=ls('atlas-code'),r=await fetch(API+'?'+new URLSearchParams(params),{headers:code?{'x-atlas-code':code}:{}});
 if(r.status===401){const c=prompt('Código de acesso do Atlas:');if(c){ls('atlas-code',c);return live(params,label)}$('meta').textContent='Código de acesso necessário.';return true}
 if(r.status===404)return false;
