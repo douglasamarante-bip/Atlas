@@ -101,6 +101,72 @@ async function google(q, advId, pages, t0) {
 
 const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 const nameMatch = (n, q) => { n = norm(n); q = norm(q); return n.length >= 3 && q.length >= 3 && (n === q || n.includes(q) || q.includes(n)); };
+
+// ---------- YouTube: canal -> anúncios ----------
+const YT_ID = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/|ytimg\.com\/vi(?:_webp)?\/)([A-Za-z0-9_-]{11})/g;
+function videoIds(text) { const s = new Set(); let m; YT_ID.lastIndex = 0; while ((m = YT_ID.exec(text))) s.add(m[1]); return [...s]; }
+async function ytChannelInfo(input) {
+  input = String(input || '').trim();
+  let url = '';
+  if (/^https?:\/\//i.test(input)) url = input; else if (/^@?[\w.\-]+$/.test(input)) url = 'https://www.youtube.com/@' + input.replace(/^@/, '');
+  const info = {name: url ? '' : input, url: '', id: '', handle: ''};
+  if (!url) return info;
+  try {
+    const r = await fetch(url, {headers: {'accept-language': 'pt-BR,pt;q=0.9', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36'}});
+    const t = await r.text();
+    const og = t.match(/<meta property="og:title" content="([^"]+)"/);
+    info.name = og ? og[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') : '';
+    const cid = t.match(/"(?:channelId|externalId)":"(UC[\w-]{22})"/); info.id = cid ? cid[1] : '';
+    const cu = t.match(/<link rel="canonical" href="([^"]+)"/); info.url = cu ? cu[1] : url;
+    const h = info.url.match(/youtube\.com\/(@[^/?#]+)/); info.handle = h ? decodeURIComponent(h[1]).toLowerCase() : '';
+  } catch (e) {}
+  return info;
+}
+async function ytOembed(id) {
+  try {
+    const r = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id));
+    if (!r.ok) return null;
+    const j = await r.json(); return {id, title: j.title, author: j.author_name, url: j.author_url};
+  } catch (e) { return null; }
+}
+function sameChannel(ch, o) {
+  const u = decodeURIComponent(String(o.url || '')).toLowerCase();
+  if (ch.handle && u.includes(ch.handle)) return true;
+  if (ch.id && u.includes(ch.id.toLowerCase())) return true;
+  return !!ch.name && !!o.author && norm(o.author) === norm(ch.name);
+}
+async function checkVideos(ids, ch) { // confere de quem é cada vídeo (oEmbed do YouTube, em lotes de 5)
+  const out = new Map();
+  for (let i = 0; i < ids.length; i += 5) await Promise.all(ids.slice(i, i + 5).map(async id => { const o = await ytOembed(id); if (o) out.set(id, {...o, same: sameChannel(ch, o)}); }));
+  return out;
+}
+function channelResult(ch, list, rows, info, nChecked) {
+  const linked = [];
+  for (const r of rows) for (const v of r.vids || []) { const o = info.get(v); if (o && o.same) { linked.push({adv: r.adv, advName: r.advName, nome: r.nome, ini: r.ini, fim: r.fim, link: r.link, video: 'https://www.youtube.com/watch?v=' + v, title: o.title}); break; } }
+  const advertisers = list.slice(0, 10).map((a, i) => ({id: a.id, name: a.name, match: a.match, videoAds: i < 2 ? rows.filter(r => r.adv === a.id && (r.vids || []).length).length : null, linked: i < 2 ? linked.filter(l => l.adv === a.id).length : null}));
+  const top = list.slice(0, 2);
+  const verdict = linked.length ? 'Sim: ' + linked.length + ' anúncio(s) do Google/YouTube usam vídeos deste canal.'
+    : top.some(a => a.match) ? 'Existe anunciante com o nome do canal, mas não consegui confirmar nos anúncios nenhum vídeo deste canal (os anúncios podem usar vídeos não listados, ou o Transparency Center não expôs o link do vídeo).'
+    : list.length ? 'Não achei anunciante com o nome do canal. Veja os parecidos abaixo: o canal pode anunciar por uma conta com outro nome (agência, razão social).'
+    : 'Nenhum anunciante encontrado para o nome do canal.';
+  return {channel: ch, advertisers, linked, checked: nChecked, verdict};
+}
+async function channelMode(input) {
+  const ch = await ytChannelInfo(input);
+  if (!ch.name) return {status: 400, body: {error: 'Não consegui ler o canal. Cole o link completo (youtube.com/@canal) ou o @ do canal.'}};
+  const g = await call({engine: 'google_ads_transparency_center_advertiser_search', q: ch.name}).catch(() => ({}));
+  const list = findAdvertisers(g).map(a => ({...a, match: nameMatch(a.name, ch.name)})).sort((a, b) => b.match - a.match);
+  const rows = [];
+  for (const a of list.slice(0, 2)) {
+    try {
+      const j = await gCall({engine: 'google_ads_transparency_center', advertiser_id: a.id, num: 100});
+      for (const c of j.ad_creatives || []) rows.push({adv: a.id, advName: a.name, nome: clean(a.name) + ' · ' + c.id, ini: day(c.first_shown_datetime), fim: day(c.last_shown_datetime),
+        link: c.details_link || `https://adstransparency.google.com/advertiser/${a.id}/creative/${c.id}`, vids: videoIds(JSON.stringify(c))});
+    } catch (e) {}
+  }
+  const ids = [...new Set(rows.flatMap(r => r.vids))].slice(0, 40);
+  return {status: 200, body: {...channelResult(ch, list, rows, await checkVideos(ids, ch), ids.length), source: 'SearchAPI'}};
+}
 async function discoverBoth(q) { // anunciantes com esse nome na Meta e no Google
   const [m, g] = await Promise.all([
     call({engine: 'meta_ad_library_page_search', q, country: COUNTRY}).catch(() => ({})),
@@ -126,6 +192,11 @@ exports.handler = async (event) => {
   const q = String(p.q || '').replace(/^@/, '').trim().slice(0, 100);
   const id = String(p.id || '').trim(), type = p.type || 'auto';
   const pages = Math.min(5, Math.max(1, parseInt(p.pages || '2', 10) || 2));
+  if (p.mode === 'channel') {
+    const input = String(p.q || '').trim().slice(0, 200);
+    if (!input) return reply(400, {error: 'Cole o link ou o @ do canal.'});
+    try { const r = await channelMode(input); return reply(r.status, r.body); } catch (e) { return reply(502, {error: e.message}); }
+  }
   if (p.mode === 'discover') {
     if (!q) return reply(400, {error: 'Informe o nome do anunciante ou o nicho.'});
     try { return reply(200, await discoverBoth(q)); } catch (e) { return reply(502, {error: e.message}); }

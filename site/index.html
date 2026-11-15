@@ -26,7 +26,7 @@ h1{font-size:18px;margin:0 0 2px}.mu{color:var(--mu);font-size:12px}
 input,select,textarea,button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
 #q{flex:1;min-width:200px}
 button{cursor:pointer}button.pri{background:var(--or);border-color:var(--or);color:#fff;font-weight:600}
-#idq,#dn{flex:1;min-width:200px}#dc{max-width:240px}
+#idq,#dn,#yc{flex:1;min-width:200px}#dc{max-width:240px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .chip{padding:6px 12px;border-radius:99px;font-size:12px}.chip.on{background:var(--bl);border-color:var(--bl);color:#fff}
 .grid{display:grid;gap:12px}
@@ -71,6 +71,8 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 <div class="bar"><select id="idt"><option value="auto">ID: detectar sozinho</option><option value="mad">Meta · ID do anúncio</option><option value="mpg">Meta · ID da página/anunciante</option><option value="gadv">Google · ID do anunciante (AR…)</option></select><input id="idq" placeholder="ID da biblioteca ou do anunciante (ex.: 1234567890123 ou AR0123456789)" autocomplete="off"><button class="pri" id="idgo">Buscar por ID</button></div>
 <div class="bar"><input id="dn" placeholder="Buscar anunciante pelo nome (ex.: Sobrado Sabores) ou por nicho (ex.: confeitaria)" autocomplete="off"><input id="dc" placeholder="Cidade ou bairro (opcional)" autocomplete="off"><button class="pri" id="dgo">Buscar anunciantes</button></div>
 <div id="disc"></div>
+<div class="bar"><input id="yc" placeholder="Canal do YouTube: cole o link ou o @ (ex.: youtube.com/@nomedocanal)" autocomplete="off"><button class="pri" id="ygo">Ver anúncios do canal</button></div>
+<div id="yres"></div>
 <div class="links" id="links"></div>
 <div class="chips" id="chips"></div>
 
@@ -189,6 +191,19 @@ const up=()=>window.scrollTo({top:0,behavior:'smooth'});
 d.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{analyze(b.dataset.p==='Meta'?b.dataset.id:'',b.dataset.p==='Google'?b.dataset.id:'',b.dataset.n);up()});
 if($('dall'))$('dall').onclick=()=>{analyze(best.meta,best.google,n);up()}}
 catch(e){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">'+esc(MSGNET())+'</div>'}}
+async function channel(){const v=$('yc').value.trim();if(!v)return;const d=$('yres'),su=u=>/^https:\/\//.test(u||'')?u:'#';
+d.innerHTML='<div class="card mu" style="margin-bottom:12px">Lendo o canal e procurando anúncios no Google/YouTube… (pode levar até 1 minuto)</div>';
+try{const code=ls('atlas-code'),r=await fetch(API+'?'+new URLSearchParams({mode:'channel',q:v}),{headers:code?{'x-atlas-code':code}:{}});
+if(r.status===401){const k=prompt('Código de acesso do Atlas:');if(k){ls('atlas-code',k);return channel()}d.innerHTML='';return}
+const j=await r.json().catch(()=>null);
+if(!j||!r.ok){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">'+esc((j&&j.error)||(r.status===404?MSG404:'Erro '+r.status))+'</div>';return}
+const ch=j.channel||{},adv=j.advertisers||[],lk2=j.linked||[];
+d.innerHTML='<div class="card sc" style="margin-bottom:12px"><h3>Canal: <a style="color:var(--cy)" target="_blank" rel="noopener" href="'+esc(su(ch.url))+'">'+esc(ch.name||v)+'</a></h3><p style="margin:0 0 10px"><b>'+esc(j.verdict)+'</b></p>'
++(adv.length?'<table><tr><th>Anunciante no Google</th><th>Anúncios em vídeo</th><th>Vídeos do canal</th><th></th></tr>'+adv.map(a=>`<tr><td>${esc(a.name)}${a.match?' <span class="tag on-t">nome igual</span>':''}</td><td>${a.videoAds==null?'—':a.videoAds}</td><td>${a.linked==null?'—':a.linked}</td><td><button data-g="${esc(a.id)}" data-n="${esc(a.name)}">Analisar</button></td></tr>`).join('')+'</table>':'')
++(lk2.length?'<h3 style="margin-top:14px">Anúncios que usam vídeos deste canal</h3><table><tr><th>Anúncio</th><th>Vídeo</th><th>Período</th></tr>'+lk2.map(a=>`<tr><td><a style="color:var(--cy)" target="_blank" rel="noopener" href="${esc(su(a.link))}">${esc(a.nome)}</a></td><td><a style="color:var(--cy)" target="_blank" rel="noopener" href="${esc(su(a.video))}">${esc(a.title||'ver vídeo')}</a></td><td>${esc(a.ini||'')} → ${esc(a.fim||'ativo')}</td></tr>`).join('')+'</table>':'')
++'<p class="mu" style="margin:10px 0 0">O Google não liga anúncio a canal: o Atlas procura anunciantes com o nome do canal e confere se os vídeos dos anúncios pertencem a ele. '+j.checked+' vídeo(s) conferido(s).</p></div>';
+d.querySelectorAll('button[data-g]').forEach(b=>b.onclick=()=>{analyze('',b.dataset.g,b.dataset.n);window.scrollTo({top:0,behavior:'smooth'})})}
+catch(e){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">'+esc(MSGNET())+'</div>'}}
 async function search(){const v=$('q').value.trim();if(!v)return;NAME=v;links(v);
 if(await live({q:v.replace(/^@/,'')},v))return;
 if(!IMPORTED)ADS=demo(v);render()}
@@ -200,7 +215,7 @@ if(!out.length){alert('Nenhuma linha válida. Use: canal;anuncio;formato;AAAA-MM
 ADS=out;IMPORTED=true;LIVE=false;if(nm)NAME=nm;NAME=NAME||'Dados importados';render()}
 ['Todos','Meta','Google'].forEach(p=>{const b=document.createElement('button');b.className='chip'+(p===PF?' on':'');b.textContent=p==='Todos'?'Todas as plataformas':p==='Meta'?'Meta (Facebook + Instagram)':'Google (YouTube + Pesquisa)';
 b.onclick=()=>{PF=p;[...$('chips').children].forEach(x=>x.classList.toggle('on',x===b));render()};$('chips').appendChild(b)});
-$('go').onclick=search;$('dgo').onclick=discover;$('dn').onkeydown=e=>{if(e.key==='Enter')discover()};$('dc').onkeydown=e=>{if(e.key==='Enter')discover()};$('idgo').onclick=byId;$('idq').onkeydown=e=>{if(e.key==='Enter')byId()};$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;LIVE=false;search()};
+$('go').onclick=search;$('ygo').onclick=channel;$('yc').onkeydown=e=>{if(e.key==='Enter')channel()};$('dgo').onclick=discover;$('dn').onkeydown=e=>{if(e.key==='Enter')discover()};$('dc').onkeydown=e=>{if(e.key==='Enter')discover()};$('idgo').onclick=byId;$('idq').onkeydown=e=>{if(e.key==='Enter')byId()};$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;LIVE=false;search()};
 addEventListener('message',e=>{const d=e.data;if(e.source!==window||!d||d.type!=='ADSRADAR_CSV'||typeof d.csv!=='string')return;if(d.nome){$('q').value=d.nome;links(d.nome)}imp(d.csv,d.nome)});$('rate').onchange=render;$('q').onkeydown=e=>{if(e.key==='Enter')search()};
 $('q').value='@minhamarca';NAME='@minhamarca';links(NAME);ADS=demo(NAME);render();checkApi();
 </script>

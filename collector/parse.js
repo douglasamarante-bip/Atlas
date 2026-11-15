@@ -78,7 +78,8 @@ function walkGoogle(obj, map) {
     if (!cr) return;
     const ts = [];
     walk(o, x => { for (const v of Object.values(x)) if ((typeof v === 'number' || typeof v === 'string') && /^1[4-9]\d{8}$/.test(String(v))) ts.push(Number(v)); });
-    map.set(cr, {id: cr, adv: vals.find(AR) || '', ts, blob: JSON.stringify(o).slice(0, 4000)});
+    const full = JSON.stringify(o);
+    map.set(cr, {id: cr, adv: vals.find(AR) || '', ts, blob: full.slice(0, 4000), vids: videoIds(full)});
     return false;
   });
 }
@@ -90,7 +91,58 @@ function googleRow(c, name, advId) { // primeira/última exibição = menor/maio
     canal: /youtube/i.test(b) ? 'YouTube' : 'Google',
     fmt: /\.mp4|video|youtube/i.test(b) ? 'Vídeo' : /<img|\.(jpe?g|png|webp)|simgad|googleusercontent/i.test(b) ? 'Imagem' : 'Texto',
     nome: clean(name || 'Anúncio') + ' · ' + c.id, ini: iso(first), fim: recent ? '' : iso(last),
-    link: `https://adstransparency.google.com/advertiser/${c.adv || advId}/creative/${c.id}`
+    vids: c.vids || [], link: `https://adstransparency.google.com/advertiser/${c.adv || advId}/creative/${c.id}`
   };
 }
-module.exports = {parseChunks, walk, walkMeta, metaRow, pickPages, groupPages, nameMatch, findAdvertisers, walkGoogle, googleRow};
+
+// ---------- YouTube: canal -> anúncios ----------
+const YT_ID = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/|ytimg\.com\/vi(?:_webp)?\/)([A-Za-z0-9_-]{11})/g;
+function videoIds(text) { const s = new Set(); let m; YT_ID.lastIndex = 0; while ((m = YT_ID.exec(text))) s.add(m[1]); return [...s]; }
+async function ytChannelInfo(input) {
+  input = String(input || '').trim();
+  let url = '';
+  if (/^https?:\/\//i.test(input)) url = input; else if (/^@?[\w.\-]+$/.test(input)) url = 'https://www.youtube.com/@' + input.replace(/^@/, '');
+  const info = {name: url ? '' : input, url: '', id: '', handle: ''};
+  if (!url) return info;
+  try {
+    const r = await fetch(url, {headers: {'accept-language': 'pt-BR,pt;q=0.9', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36'}});
+    const t = await r.text();
+    const og = t.match(/<meta property="og:title" content="([^"]+)"/);
+    info.name = og ? og[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') : '';
+    const cid = t.match(/"(?:channelId|externalId)":"(UC[\w-]{22})"/); info.id = cid ? cid[1] : '';
+    const cu = t.match(/<link rel="canonical" href="([^"]+)"/); info.url = cu ? cu[1] : url;
+    const h = info.url.match(/youtube\.com\/(@[^/?#]+)/); info.handle = h ? decodeURIComponent(h[1]).toLowerCase() : '';
+  } catch (e) {}
+  return info;
+}
+async function ytOembed(id) {
+  try {
+    const r = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id));
+    if (!r.ok) return null;
+    const j = await r.json(); return {id, title: j.title, author: j.author_name, url: j.author_url};
+  } catch (e) { return null; }
+}
+function sameChannel(ch, o) {
+  const u = decodeURIComponent(String(o.url || '')).toLowerCase();
+  if (ch.handle && u.includes(ch.handle)) return true;
+  if (ch.id && u.includes(ch.id.toLowerCase())) return true;
+  return !!ch.name && !!o.author && norm(o.author) === norm(ch.name);
+}
+async function checkVideos(ids, ch) { // confere de quem é cada vídeo (oEmbed do YouTube, em lotes de 5)
+  const out = new Map();
+  for (let i = 0; i < ids.length; i += 5) await Promise.all(ids.slice(i, i + 5).map(async id => { const o = await ytOembed(id); if (o) out.set(id, {...o, same: sameChannel(ch, o)}); }));
+  return out;
+}
+function channelResult(ch, list, rows, info, nChecked) {
+  const linked = [];
+  for (const r of rows) for (const v of r.vids || []) { const o = info.get(v); if (o && o.same) { linked.push({adv: r.adv, advName: r.advName, nome: r.nome, ini: r.ini, fim: r.fim, link: r.link, video: 'https://www.youtube.com/watch?v=' + v, title: o.title}); break; } }
+  const advertisers = list.slice(0, 10).map((a, i) => ({id: a.id, name: a.name, match: a.match, videoAds: i < 2 ? rows.filter(r => r.adv === a.id && (r.vids || []).length).length : null, linked: i < 2 ? linked.filter(l => l.adv === a.id).length : null}));
+  const top = list.slice(0, 2);
+  const verdict = linked.length ? 'Sim: ' + linked.length + ' anúncio(s) do Google/YouTube usam vídeos deste canal.'
+    : top.some(a => a.match) ? 'Existe anunciante com o nome do canal, mas não consegui confirmar nos anúncios nenhum vídeo deste canal (os anúncios podem usar vídeos não listados, ou o Transparency Center não expôs o link do vídeo).'
+    : list.length ? 'Não achei anunciante com o nome do canal. Veja os parecidos abaixo: o canal pode anunciar por uma conta com outro nome (agência, razão social).'
+    : 'Nenhum anunciante encontrado para o nome do canal.';
+  return {channel: ch, advertisers, linked, checked: nChecked, verdict};
+}
+
+module.exports = {videoIds, ytChannelInfo, checkVideos, channelResult, parseChunks, walk, walkMeta, metaRow, pickPages, groupPages, nameMatch, findAdvertisers, walkGoogle, googleRow};

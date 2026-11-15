@@ -41,6 +41,9 @@ Guia para hospedar o coletor na Oracle Cloud (com HTTPS): `deploy/oracle/LEIAME.
 - **Busca por ID:** aceita o ID de um anúncio (o “ID da biblioteca”), o ID da página (Meta) ou o ID do anunciante `AR…` (Google). Com o ID de anúncio, o Atlas descobre o anunciante sozinho.
 - Pequenos anunciantes costumam estar no Google pela razão social: se o nome fantasia não achar, tente a razão social.
 
+## Canal do YouTube
+Cole o link ou o @ do canal (campo “Ver anúncios do canal”). O Atlas lê o nome do canal, procura anunciantes com esse nome no Google e confere, pelo YouTube, se os vídeos dos anúncios pertencem ao canal. O Google não liga anúncio a canal, então é uma verificação indireta: se o canal anuncia por uma conta com outro nome (agência, razão social), o resultado pode vir vazio.
+
 ## 2. Instalar a extensão
 1. Chrome → `chrome://extensions` → ative **Modo do desenvolvedor** → **Carregar sem compactação** → selecione a pasta `extension/`.
 2. Abra a Biblioteca de Anúncios da Meta (facebook.com/ads/library) ou o Centro de Transparência do Google (adstransparency.google.com), pesquise o alvo e deixe os resultados na tela.

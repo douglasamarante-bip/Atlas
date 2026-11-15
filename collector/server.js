@@ -88,6 +88,18 @@ async function metaFromAd(adId) { // descobre a página (anunciante) a partir do
   } catch (e) { return null; }
 }
 
+async function channelLookup(input) {
+  const ch = await P.ytChannelInfo(input);
+  if (!ch.name) return {status: 400, body: {error: 'Não consegui ler o canal. Cole o link completo (youtube.com/@canal) ou o @ do canal.'}};
+  let list = []; try { list = await googleFind(ch.name); } catch (e) {}
+  list = list.map(a => ({...a, match: P.nameMatch(a.name, ch.name)})).sort((a, b) => b.match - a.match);
+  const rows = [];
+  for (const a of list.slice(0, 2)) { try { for (const x of (await google(ch.name, a.id, 8)).rows) rows.push({...x, adv: a.id, advName: a.name}); } catch (e) {} }
+  const ids = [...new Set(rows.flatMap(r => r.vids || []))].slice(0, 40);
+  const info = await P.checkVideos(ids, ch);
+  return {status: 200, body: {...P.channelResult(ch, list, rows, info, ids.length), source: 'coletor próprio'}};
+}
+
 async function lookup({q, id, type, pages, mid, gid}) {
   let metaId = mid || '', gId = (gid || '').toUpperCase();
   if (id) {
@@ -122,6 +134,17 @@ http.createServer(async (req, res) => {
   if (CODE && req.headers['x-atlas-code'] !== CODE) return send(401, {error: 'Código de acesso inválido.'});
   const q = (u.searchParams.get('q') || '').replace(/^@/, '').trim().slice(0, 100), id = (u.searchParams.get('id') || '').trim();
   const type = u.searchParams.get('type') || 'auto', pages = Math.min(5, Math.max(1, parseInt(u.searchParams.get('pages') || '2', 10) || 2));
+  if (u.searchParams.get('mode') === 'channel') { // canal do YouTube -> anúncios ligados a ele
+    const input = (u.searchParams.get('q') || '').trim().slice(0, 200);
+    if (!input) return send(400, {error: 'Cole o link ou o @ do canal.'});
+    const ck = 'c|' + input, ch = CACHE.get(ck);
+    if (ch && Date.now() - ch.t < TTL) return send(200, ch.d);
+    try {
+      const r = await queue(() => channelLookup(input));
+      if (r.status === 200) CACHE.set(ck, {t: Date.now(), d: r.body});
+      return send(r.status, r.body);
+    } catch (e) { return send(500, {error: 'Falha na coleta: ' + e.message.split('\n')[0]}); }
+  }
   if (u.searchParams.get('mode') === 'discover') { // buscar anunciantes (nome ou nicho) na Meta e no Google
     if (!q) return send(400, {error: 'Informe o nome do anunciante ou o nicho.'});
     const city = (u.searchParams.get('city') || '').trim().slice(0, 60);
