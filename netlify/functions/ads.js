@@ -99,6 +99,24 @@ async function google(q, advId, pages, t0) {
   return {rows: rows.filter(r => r.ini), name, id, cands, note: rows.length ? '' : 'Google: o anunciante existe, mas não há anúncios no período/região consultados.'};
 }
 
+async function discoverMeta(q) { // anunciantes ativos que citam as palavras (nicho + cidade)
+  const g = new Map(); let token;
+  for (let i = 0; i < 3; i++) {
+    const p = {engine: 'meta_ad_library', q, country: COUNTRY, active_status: 'active', sort_by: 'most_recent'};
+    if (token) p.next_page_token = token;
+    const j = await call(p);
+    for (const a of j.ads || []) {
+      const id = String(a.page_id || ''); if (!id) continue;
+      const e = g.get(id) || {id, name: a.page_name || id, ads: 0, active: 0, since: ''};
+      e.ads++; if (a.is_active) e.active++;
+      const d = day(a.start_date); if (d && (!e.since || d < e.since)) e.since = d;
+      g.set(id, e);
+    }
+    token = j.pagination && j.pagination.next_page_token; if (!token) break;
+  }
+  return [...g.values()].sort((a, b) => b.active - a.active || b.ads - a.ads).slice(0, 40);
+}
+
 exports.handler = async (event) => {
   if (!KEY) return reply(500, {error: 'SEARCHAPI_KEY não configurada nas variáveis de ambiente do Netlify.'});
   const need = process.env.ATLAS_ACCESS_CODE, h = event.headers || {};
@@ -107,6 +125,11 @@ exports.handler = async (event) => {
   const q = String(p.q || '').replace(/^@/, '').trim().slice(0, 100);
   const id = String(p.id || '').trim(), type = p.type || 'auto';
   const pages = Math.min(5, Math.max(1, parseInt(p.pages || '2', 10) || 2));
+  if (p.mode === 'discover') {
+    if (!q) return reply(400, {error: 'Informe o nicho (q).'});
+    try { return reply(200, {q, advertisers: await discoverMeta(q), source: 'SearchAPI'}); }
+    catch (e) { return reply(502, {error: e.message}); }
+  }
   if (!q && !id) return reply(400, {error: 'Informe q (nome) ou id.'});
   if (id && !/^[A-Za-z0-9]+$/.test(id)) return reply(400, {error: 'ID inválido.'});
   let metaId = '', gId = '';

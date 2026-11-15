@@ -43,7 +43,18 @@ function pickPages(map, q) { // quais anunciantes aparecem na busca por palavra-
     const e = g.get(id) || {id, name, n: 0}; e.n++; g.set(id, e);
   }
   const score = p => { const n = norm(p.name); return (n === nq ? 3 : n.startsWith(nq) ? 2 : n.includes(nq) || nq.includes(n) ? 1 : 0) * 1000 + p.n; };
-  return [...g.values()].sort((a, b) => score(b) - score(a));
+  return [...g.values()].map(p => ({...p, match: score(p) >= 1000})).sort((a, b) => score(b) - score(a));
+}
+function groupPages(map) { // anunciantes distintos numa busca por palavra-chave (descoberta)
+  const g = new Map();
+  for (const a of map.values()) {
+    const id = String(a.page_id || (a.snapshot && a.snapshot.page_id) || ''); if (!id) continue;
+    const e = g.get(id) || {id, name: a.page_name || (a.snapshot && a.snapshot.page_name) || id, ads: 0, active: 0, since: ''};
+    e.ads++; if (a.is_active) e.active++;
+    const d = day(a.start_date); if (d && (!e.since || d < e.since)) e.since = d;
+    g.set(id, e);
+  }
+  return [...g.values()].sort((a, b) => b.active - a.active || b.ads - a.ads).slice(0, 40);
 }
 
 // ---------- Google ----------
@@ -81,4 +92,4 @@ function googleRow(c, name, advId) { // primeira/última exibição = menor/maio
     link: `https://adstransparency.google.com/advertiser/${c.adv || advId}/creative/${c.id}`
   };
 }
-module.exports = {parseChunks, walk, walkMeta, metaRow, pickPages, findAdvertisers, walkGoogle, googleRow};
+module.exports = {parseChunks, walk, walkMeta, metaRow, pickPages, groupPages, findAdvertisers, walkGoogle, googleRow};

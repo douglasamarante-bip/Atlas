@@ -38,6 +38,7 @@ async function meta(q, pageId, scrolls) {
   if (!pid) {
     const found = P.pickPages(await metaCollect(`${U}&q=${encodeURIComponent(q)}&search_type=keyword_unordered`, 3), q);
     if (!found.length) return {rows: [], note: 'Meta: nenhum anúncio encontrado para “' + q + '” (ou a Meta bloqueou o acesso do servidor).'};
+    if (!found[0].match) return {rows: [], cands: found.slice(0, 8).map(p => ({plat: 'Meta', name: p.name, id: p.id})), note: 'Meta: não achei um anunciante chamado “' + q + '”. Escolha um dos parecidos abaixo ou use “Descobrir anunciantes”.'};
     pid = found[0].id; name = found[0].name; cands = found.slice(0, 5).map(p => ({plat: 'Meta', name: p.name, id: p.id}));
   }
   const ads = await metaCollect(`${U}&view_all_page_id=${pid}&search_type=page`, scrolls);
@@ -106,6 +107,16 @@ http.createServer(async (req, res) => {
   if (CODE && req.headers['x-atlas-code'] !== CODE) return send(401, {error: 'Código de acesso inválido.'});
   const q = (u.searchParams.get('q') || '').replace(/^@/, '').trim().slice(0, 100), id = (u.searchParams.get('id') || '').trim();
   const type = u.searchParams.get('type') || 'auto', pages = Math.min(5, Math.max(1, parseInt(u.searchParams.get('pages') || '2', 10) || 2));
+  if (u.searchParams.get('mode') === 'discover') { // descobrir anunciantes por nicho (+ cidade)
+    if (!q) return send(400, {error: 'Informe o nicho (q).'});
+    const dk = 'd|' + q, dh = CACHE.get(dk);
+    if (dh && Date.now() - dh.t < TTL) return send(200, dh.d);
+    try {
+      const ads = await queue(() => metaCollect(`https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=${COUNTRY}&media_type=all&q=${encodeURIComponent(q)}&search_type=keyword_unordered`, 10));
+      const d = {q, advertisers: P.groupPages(ads), source: 'coletor próprio'};
+      CACHE.set(dk, {t: Date.now(), d}); return send(200, d);
+    } catch (e) { return send(500, {error: 'Falha na coleta: ' + e.message.split('\n')[0]}); }
+  }
   if (!q && !id) return send(400, {error: 'Informe q (nome) ou id.'});
   if (id && !/^[A-Za-z0-9]+$/.test(id)) return send(400, {error: 'ID inválido.'});
   const key = [q, id, type, pages].join('|'), hit = CACHE.get(key);

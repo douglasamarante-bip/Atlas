@@ -26,7 +26,7 @@ h1{font-size:18px;margin:0 0 2px}.mu{color:var(--mu);font-size:12px}
 input,select,textarea,button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
 #q{flex:1;min-width:200px}
 button{cursor:pointer}button.pri{background:var(--or);border-color:var(--or);color:#fff;font-weight:600}
-#idq{flex:1;min-width:200px}
+#idq,#dn{flex:1;min-width:200px}#dc{max-width:240px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .chip{padding:6px 12px;border-radius:99px;font-size:12px}.chip.on{background:var(--bl);border-color:var(--bl);color:#fff}
 .grid{display:grid;gap:12px}
@@ -60,6 +60,7 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 <main>
 <h1>Painel de Anúncios – <span id="title">—</span></h1>
 <div class="mu" id="meta"></div>
+<div class="mu" id="apistat"></div>
 <div class="bar">
 <input id="q" placeholder="Pesquisar nome, @perfil ou marca (ex.: @nike, Casas Bahia)" autocomplete="off">
 <button class="pri" id="go">Pesquisar</button>
@@ -68,6 +69,8 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 </select>
 </div>
 <div class="bar"><select id="idt"><option value="auto">ID: detectar sozinho</option><option value="mad">Meta · ID do anúncio</option><option value="mpg">Meta · ID da página/anunciante</option><option value="gadv">Google · ID do anunciante (AR…)</option></select><input id="idq" placeholder="ID da biblioteca ou do anunciante (ex.: 1234567890123 ou AR0123456789)" autocomplete="off"><button class="pri" id="idgo">Buscar por ID</button></div>
+<div class="bar"><input id="dn" placeholder="Descobrir anunciantes: nicho ou palavra do anúncio (ex.: confeitaria, pet shop)" autocomplete="off"><input id="dc" placeholder="Cidade ou bairro (opcional)" autocomplete="off"><button class="pri" id="dgo">Descobrir anunciantes</button></div>
+<div id="disc"></div>
 <div class="links" id="links"></div>
 <div class="chips" id="chips"></div>
 
@@ -94,7 +97,7 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 const CH={Facebook:{p:'Meta',c:'#3b82f6',r:22},Instagram:{p:'Meta',c:'#ff7a1a',r:28},YouTube:{p:'Google',c:'#ef4444',r:35},Google:{p:'Google',c:'#22d3ee',r:30},Meta:{p:'Meta',c:'#60a5fa',r:25}};
 const FM=['Imagem','Vídeo','Carrossel','Stories/Reels','Texto'];
 const DAY=864e5,TODAY=new Date(new Date().toDateString());
-let ADS=[],NAME='',PF='Todos',charts={},IMPORTED=false,LIVE=false,CACHE={},SRC='';
+let ADS=[],NAME='',PF='Todos',charts={},IMPORTED=false,LIVE=false,CACHE={},SRC='',NOTE='';
 const $=id=>document.getElementById(id);
 const brl=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
 const fd=d=>d.toISOString().slice(0,10);
@@ -110,7 +113,7 @@ const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:f
 const WD='<b>Modo demonstração.</b> Os dados da pesquisa são simulados até você importar os reais (extensão Atlas ou CSV). Meta e Google não divulgam o gasto de anúncios comerciais: o valor é estimado (dias no ar × orçamento diário médio por canal).';
 const WI='<b>Dados importados.</b> O gasto é estimado (dias no ar × orçamento diário médio por canal), exceto onde a coluna gasto foi preenchida. Anúncios do Google trazem apenas a data da última exibição, então os dias no ar deles são subestimados.';
 const WL=f=>'<b>Dados reais</b> da Biblioteca de Anúncios da Meta e do Centro de Transparência do Google (via '+f+'). O gasto continua sendo uma estimativa (dias no ar × orçamento diário médio por canal): as plataformas não divulgam o valor de anúncios comerciais.';
-function render(){const L=calc();$('warn').innerHTML=LIVE?WL(SRC):IMPORTED?WI:WD;$('reset').style.display=IMPORTED?'':'none';$('title').textContent=NAME||'—';
+function render(){const L=calc();$('warn').innerHTML=(LIVE?WL(SRC):IMPORTED?WI:WD)+(NOTE&&!LIVE?'<br><b style="color:var(--rd)">'+esc(NOTE)+'</b>':'');$('reset').style.display=IMPORTED?'':'none';$('title').textContent=NAME||'—';
 const tot=L.reduce((s,a)=>s+a.est,0),act=L.filter(a=>a.ativo).length,avg=L.length?L.reduce((s,a)=>s+a.dias,0)/L.length:0;
 const first=L.length?Math.min(...L.map(a=>a.ini)):TODAY,el=Math.round((TODAY-first)/DAY),big=L.length?Math.max(...L.map(a=>a.dias)):0;
 $('meta').textContent=L.length+' anúncios encontrados · atualizado em '+TODAY.toLocaleDateString('pt-BR');
@@ -149,7 +152,7 @@ const lk=n=>{const m=String(n).match(/^(.*?)\s*·\s*(\d{6,})$/);return m?`${esc(
 const API=window.ATLAS_API||'/.netlify/functions/ads';
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v)}catch(e){return ''}};
 function applyLive(j,label){ADS=j.rows.map(a=>({canal:a.canal,nome:a.nome,fmt:a.fmt,ini:new Date(a.ini+'T00:00:00'),fim:a.fim?new Date(a.fim+'T00:00:00'):null,gasto:null,link:a.link||''}));
-IMPORTED=true;LIVE=true;SRC=j.source||'serviço de coleta';NAME=j.name||label||NAME;render();
+IMPORTED=true;LIVE=true;NOTE='';SRC=j.source||'serviço de coleta';NAME=j.name||label||NAME;render();
 const who=[j.meta&&'Meta: '+j.meta.name,j.google&&'Google: '+j.google.name].filter(Boolean).join(' | ');
 $('meta').textContent+=(who?' · '+who:'')+((j.notes||[]).length?' · '+j.notes.join(' · '):'');
 const c=(j.candidates||[]).filter(x=>x.id!==(j.meta&&j.meta.id)&&x.id!==(j.google&&j.google.id));
@@ -160,10 +163,27 @@ if(CACHE[key]){applyLive(CACHE[key],label);return true}
 $('meta').textContent='Buscando anúncios reais… (pode levar até 1 minuto)';
 try{const code=ls('atlas-code'),r=await fetch(API+'?'+new URLSearchParams(params),{headers:code?{'x-atlas-code':code}:{}});
 if(r.status===401){const c=prompt('Código de acesso do Atlas:');if(c){ls('atlas-code',c);return live(params,label)}$('meta').textContent='Código de acesso necessário.';return true}
-if(r.status===404)return false;
+if(r.status===404){NOTE=MSG404;return false}
 const j=await r.json().catch(()=>null);if(!j)return false;
 if(!r.ok){$('meta').textContent='Erro: '+(j.error||r.status);return true}
-CACHE[key]=j;applyLive(j,label);return true}catch(e){return false}}
+CACHE[key]=j;applyLive(j,label);return true}catch(e){NOTE=MSGNET();return false}}
+const MSG404='A busca real NÃO está configurada: defina window.ATLAS_API no config.js (coletor) ou SEARCHAPI_KEY no Netlify (SearchAPI). Por isso aparecem dados simulados.';
+const MSGNET=()=>{let h=API;try{h=new URL(API,location.href).host}catch(e){}return 'Não consegui falar com '+h+' (coletor desligado, endereço errado no config.js ou bloqueio de HTTPS/CORS). Por isso aparecem dados simulados.'};
+async function checkApi(){const el=$('apistat');
+try{const code=ls('atlas-code'),r=await fetch(API,{headers:code?{'x-atlas-code':code}:{}});
+const m=r.status===400||r.status===200?['gr','Busca real conectada.']:r.status===401?['gr','Busca real conectada (vai pedir o código de acesso na primeira busca).']:r.status===500?['rd','A função do Netlify está sem a variável SEARCHAPI_KEY.']:r.status===404?['rd',MSG404]:['rd','A busca real respondeu com erro '+r.status+'.'];
+el.innerHTML=`<span style="color:var(--${m[0]})">●</span> ${esc(m[1])}`}
+catch(e){el.innerHTML='<span style="color:var(--rd)">●</span> '+esc(MSGNET())}}
+async function discover(){const n=$('dn').value.trim(),c=$('dc').value.trim();if(!n)return;const d=$('disc');
+d.innerHTML='<div class="card mu" style="margin-bottom:12px">Procurando anunciantes ativos… (pode levar até 1 minuto)</div>';
+try{const code=ls('atlas-code'),r=await fetch(API+'?'+new URLSearchParams({mode:'discover',q:(n+' '+c).trim()}),{headers:code?{'x-atlas-code':code}:{}});
+if(r.status===401){const k=prompt('Código de acesso do Atlas:');if(k){ls('atlas-code',k);return discover()}d.innerHTML='';return}
+const j=await r.json().catch(()=>null);
+if(!j||!r.ok){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">'+esc((j&&j.error)||(r.status===404?MSG404:'Erro '+r.status))+'</div>';return}
+if(!j.advertisers.length){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">Nenhum anunciante ativo encontrado. A busca olha o <b>texto dos anúncios</b>, não a cidade do anunciante: tente outras palavras (nicho, nome do bairro, “delivery”…).</div>';return}
+d.innerHTML='<div class="card sc" style="margin-bottom:12px"><h3>Anunciantes ativos para “'+esc(j.q)+'”</h3><table><tr><th>Anunciante</th><th>Anúncios</th><th>Ativos</th><th>No ar desde</th><th></th></tr>'+j.advertisers.map(a=>`<tr><td>${esc(a.name)}</td><td>${a.ads}</td><td>${a.active}</td><td>${esc(a.since||'—')}</td><td><button data-id="${esc(a.id)}">Analisar</button></td></tr>`).join('')+'</table></div>';
+d.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{$('idt').value='mpg';$('idq').value=b.dataset.id;byId();window.scrollTo({top:0,behavior:'smooth'})})}
+catch(e){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">'+esc(MSGNET())+'</div>'}}
 async function search(){const v=$('q').value.trim();if(!v)return;NAME=v;links(v);
 if(await live({q:v.replace(/^@/,'')},v))return;
 if(!IMPORTED)ADS=demo(v);render()}
@@ -175,9 +195,9 @@ if(!out.length){alert('Nenhuma linha válida. Use: canal;anuncio;formato;AAAA-MM
 ADS=out;IMPORTED=true;LIVE=false;if(nm)NAME=nm;NAME=NAME||'Dados importados';render()}
 ['Todos','Meta','Google'].forEach(p=>{const b=document.createElement('button');b.className='chip'+(p===PF?' on':'');b.textContent=p==='Todos'?'Todas as plataformas':p==='Meta'?'Meta (Facebook + Instagram)':'Google (YouTube + Pesquisa)';
 b.onclick=()=>{PF=p;[...$('chips').children].forEach(x=>x.classList.toggle('on',x===b));render()};$('chips').appendChild(b)});
-$('go').onclick=search;$('idgo').onclick=byId;$('idq').onkeydown=e=>{if(e.key==='Enter')byId()};$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;LIVE=false;search()};
+$('go').onclick=search;$('dgo').onclick=discover;$('dn').onkeydown=e=>{if(e.key==='Enter')discover()};$('dc').onkeydown=e=>{if(e.key==='Enter')discover()};$('idgo').onclick=byId;$('idq').onkeydown=e=>{if(e.key==='Enter')byId()};$('imp').onclick=imp;$('reset').onclick=()=>{IMPORTED=false;LIVE=false;search()};
 addEventListener('message',e=>{const d=e.data;if(e.source!==window||!d||d.type!=='ADSRADAR_CSV'||typeof d.csv!=='string')return;if(d.nome){$('q').value=d.nome;links(d.nome)}imp(d.csv,d.nome)});$('rate').onchange=render;$('q').onkeydown=e=>{if(e.key==='Enter')search()};
-$('q').value='@minhamarca';search();
+$('q').value='@minhamarca';NAME='@minhamarca';links(NAME);ADS=demo(NAME);render();checkApi();
 </script>
 </body>
 </html>
