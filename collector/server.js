@@ -79,17 +79,32 @@ async function google(q, advId, scrolls) {
   return {rows, name, id, cands, note: rows.length ? '' : 'Google: nenhum anúncio coletado para este anunciante.'};
 }
 
-async function lookup({q, id, type, pages}) {
-  let metaId = '', gId = '';
+async function metaFromAd(adId) { // descobre a página (anunciante) a partir do ID de um anúncio
+  try {
+    const ads = await metaCollect(`https://www.facebook.com/ads/library/?id=${adId}`, 0);
+    const a = ads.get(String(adId)) || [...ads.values()].find(x => x.page_id);
+    const id = a && String(a.page_id || (a.snapshot && a.snapshot.page_id) || '');
+    return id ? {id, name: a.page_name} : null;
+  } catch (e) { return null; }
+}
+
+async function lookup({q, id, type, pages, mid, gid}) {
+  let metaId = mid || '', gId = (gid || '').toUpperCase();
   if (id) {
-    const t = type === 'auto' ? (/^AR/i.test(id) ? 'gadv' : 'mpg') : type;
-    if (t === 'gadv') gId = id.toUpperCase(); else if (t === 'mpg') metaId = id;
-    else return {status: 400, body: {error: 'Use o ID da página (Meta) ou o ID do anunciante AR… (Google).'}};
+    if (type === 'gadv' || (type === 'auto' && /^AR/i.test(id))) gId = id.toUpperCase();
+    else if (type === 'mpg') metaId = id;
+    else { // ID de anúncio (ou só números, sem tipo): acha o anunciante pelo anúncio
+      const pg = await metaFromAd(id);
+      if (pg) metaId = pg.id;
+      else if (type === 'auto') metaId = id;
+      else return {status: 400, body: {error: 'Não consegui achar o anunciante desse ID de anúncio. Confira o ID ou use o ID da página.'}};
+    }
   }
   const scrolls = Math.min(30, pages * 6), res = [];
   const run = async (k, fn) => { try { res.push({k, ...(await fn())}); } catch (e) { res.push({k, rows: [], note: (k === 'meta' ? 'Meta: ' : 'Google: ') + e.message.split('\n')[0]}); } };
-  if (!gId) await run('meta', () => meta(q, metaId, scrolls));
-  if (!metaId) await run('google', () => google(q, gId, scrolls));
+  const doMeta = !!metaId || !gId, doGoogle = !!gId || !metaId;
+  if (doMeta) await run('meta', () => meta(q, metaId, scrolls));
+  if (doGoogle) await run('google', () => google(q, gId, scrolls));
   const m = res.find(r => r.k === 'meta'), g = res.find(r => r.k === 'google'), rows = res.flatMap(r => r.rows || []);
   return {status: 200, body: {
     name: (m && m.name) || (g && g.name) || q || id,
@@ -107,22 +122,30 @@ http.createServer(async (req, res) => {
   if (CODE && req.headers['x-atlas-code'] !== CODE) return send(401, {error: 'Código de acesso inválido.'});
   const q = (u.searchParams.get('q') || '').replace(/^@/, '').trim().slice(0, 100), id = (u.searchParams.get('id') || '').trim();
   const type = u.searchParams.get('type') || 'auto', pages = Math.min(5, Math.max(1, parseInt(u.searchParams.get('pages') || '2', 10) || 2));
-  if (u.searchParams.get('mode') === 'discover') { // descobrir anunciantes por nicho (+ cidade)
-    if (!q) return send(400, {error: 'Informe o nicho (q).'});
-    const dk = 'd|' + q, dh = CACHE.get(dk);
+  if (u.searchParams.get('mode') === 'discover') { // buscar anunciantes (nome ou nicho) na Meta e no Google
+    if (!q) return send(400, {error: 'Informe o nome do anunciante ou o nicho.'});
+    const city = (u.searchParams.get('city') || '').trim().slice(0, 60);
+    const dk = 'd|' + q + '|' + city, dh = CACHE.get(dk);
     if (dh && Date.now() - dh.t < TTL) return send(200, dh.d);
     try {
-      const ads = await queue(() => metaCollect(`https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=${COUNTRY}&media_type=all&q=${encodeURIComponent(q)}&search_type=keyword_unordered`, 10));
-      const d = {q, advertisers: P.groupPages(ads), source: 'coletor próprio'};
+      const d = await queue(async () => {
+        const ads = await metaCollect(`https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=${COUNTRY}&media_type=all&q=${encodeURIComponent((q + ' ' + city).trim())}&search_type=keyword_unordered`, 8);
+        const meta = P.groupPages(ads, q).slice(0, 25);
+        let google = [];
+        try { google = (await googleFind(q)).map(a => ({...a, match: P.nameMatch(a.name, q)})); } catch (e) {}
+        return {q, meta, google, best: {meta: (meta.find(m => m.match) || {}).id || '', google: (google.find(g => g.match) || {}).id || ''}, source: 'coletor próprio'};
+      });
       CACHE.set(dk, {t: Date.now(), d}); return send(200, d);
     } catch (e) { return send(500, {error: 'Falha na coleta: ' + e.message.split('\n')[0]}); }
   }
-  if (!q && !id) return send(400, {error: 'Informe q (nome) ou id.'});
+  const mid = (u.searchParams.get('mid') || '').trim(), gid = (u.searchParams.get('gid') || '').trim();
+  if ((mid && !/^[A-Za-z0-9]+$/.test(mid)) || (gid && !/^[A-Za-z0-9]+$/.test(gid))) return send(400, {error: 'ID inválido.'});
+  if (!q && !id && !mid && !gid) return send(400, {error: 'Informe q (nome) ou id.'});
   if (id && !/^[A-Za-z0-9]+$/.test(id)) return send(400, {error: 'ID inválido.'});
-  const key = [q, id, type, pages].join('|'), hit = CACHE.get(key);
+  const key = [q, id, type, pages, mid, gid].join('|'), hit = CACHE.get(key);
   if (hit && Date.now() - hit.t < TTL) return send(200, hit.d);
   try {
-    const r = await queue(() => lookup({q, id, type, pages}));
+    const r = await queue(() => lookup({q, id, type, pages, mid, gid}));
     if (r.status === 200) CACHE.set(key, {t: Date.now(), d: r.body});
     send(r.status, r.body);
   } catch (e) { send(500, {error: 'Falha na coleta: ' + e.message.split('\n')[0]}); }

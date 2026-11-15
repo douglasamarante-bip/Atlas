@@ -99,22 +99,23 @@ async function google(q, advId, pages, t0) {
   return {rows: rows.filter(r => r.ini), name, id, cands, note: rows.length ? '' : 'Google: o anunciante existe, mas não há anúncios no período/região consultados.'};
 }
 
-async function discoverMeta(q) { // anunciantes ativos que citam as palavras (nicho + cidade)
-  const g = new Map(); let token;
-  for (let i = 0; i < 3; i++) {
-    const p = {engine: 'meta_ad_library', q, country: COUNTRY, active_status: 'active', sort_by: 'most_recent'};
-    if (token) p.next_page_token = token;
-    const j = await call(p);
-    for (const a of j.ads || []) {
-      const id = String(a.page_id || ''); if (!id) continue;
-      const e = g.get(id) || {id, name: a.page_name || id, ads: 0, active: 0, since: ''};
-      e.ads++; if (a.is_active) e.active++;
-      const d = day(a.start_date); if (d && (!e.since || d < e.since)) e.since = d;
-      g.set(id, e);
-    }
-    token = j.pagination && j.pagination.next_page_token; if (!token) break;
-  }
-  return [...g.values()].sort((a, b) => b.active - a.active || b.ads - a.ads).slice(0, 40);
+const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+const nameMatch = (n, q) => { n = norm(n); q = norm(q); return n.length >= 3 && q.length >= 3 && (n === q || n.includes(q) || q.includes(n)); };
+async function discoverBoth(q) { // anunciantes com esse nome na Meta e no Google
+  const [m, g] = await Promise.all([
+    call({engine: 'meta_ad_library_page_search', q, country: COUNTRY}).catch(() => ({})),
+    call({engine: 'google_ads_transparency_center_advertiser_search', q}).catch(() => ({}))]);
+  const meta = (m.page_results || []).slice(0, 15).map(p => ({id: String(p.page_id), name: p.name, ads: null, active: null, since: '', match: nameMatch(p.name, q)}));
+  const google = findAdvertisers(g).slice(0, 15).map(a => ({...a, match: nameMatch(a.name, q)}));
+  return {q, meta, google, best: {meta: (meta.find(x => x.match) || {}).id || '', google: (google.find(x => x.match) || {}).id || ''}, source: 'SearchAPI'};
+}
+function deepFind(o, key) {
+  if (Array.isArray(o)) { for (const x of o) { const r = deepFind(x, key); if (r) return r; } }
+  else if (o && typeof o === 'object') { if (o[key]) return String(o[key]); for (const v of Object.values(o)) { const r = deepFind(v, key); if (r) return r; } }
+  return '';
+}
+async function pageFromAd(adId) { // ID de anúncio -> ID da página
+  try { return deepFind(await call({engine: 'meta_ad_library_ad_details', ad_archive_id: adId}), 'page_id'); } catch (e) { return ''; }
 }
 
 exports.handler = async (event) => {
@@ -126,23 +127,28 @@ exports.handler = async (event) => {
   const id = String(p.id || '').trim(), type = p.type || 'auto';
   const pages = Math.min(5, Math.max(1, parseInt(p.pages || '2', 10) || 2));
   if (p.mode === 'discover') {
-    if (!q) return reply(400, {error: 'Informe o nicho (q).'});
-    try { return reply(200, {q, advertisers: await discoverMeta(q), source: 'SearchAPI'}); }
-    catch (e) { return reply(502, {error: e.message}); }
+    if (!q) return reply(400, {error: 'Informe o nome do anunciante ou o nicho.'});
+    try { return reply(200, await discoverBoth(q)); } catch (e) { return reply(502, {error: e.message}); }
   }
-  if (!q && !id) return reply(400, {error: 'Informe q (nome) ou id.'});
+  const mid = String(p.mid || '').trim(), gid = String(p.gid || '').trim();
+  if ((mid && !/^[A-Za-z0-9]+$/.test(mid)) || (gid && !/^[A-Za-z0-9]+$/.test(gid))) return reply(400, {error: 'ID inválido.'});
+  if (!q && !id && !mid && !gid) return reply(400, {error: 'Informe q (nome) ou id.'});
   if (id && !/^[A-Za-z0-9]+$/.test(id)) return reply(400, {error: 'ID inválido.'});
-  let metaId = '', gId = '';
+  let metaId = mid, gId = gid.toUpperCase();
   if (id) {
-    const t = type === 'auto' ? (/^AR/i.test(id) ? 'gadv' : 'mpg') : type;
-    if (t === 'gadv') gId = id.toUpperCase();
-    else if (t === 'mpg') metaId = id;
-    else return reply(400, {error: 'Use o ID da página (Meta) ou o ID do anunciante AR… (Google). O ID de um anúncio isolado não identifica o anunciante.'});
+    if (type === 'gadv' || (type === 'auto' && /^AR/i.test(id))) gId = id.toUpperCase();
+    else if (type === 'mpg') metaId = id;
+    else { // ID de anúncio (ou só números, sem tipo)
+      const pg = await pageFromAd(id);
+      if (pg) metaId = pg; else if (type === 'auto') metaId = id;
+      else return reply(400, {error: 'Não consegui achar o anunciante desse ID de anúncio. Confira o ID ou use o ID da página.'});
+    }
   }
   const t0 = Date.now(), jobs = [];
   const wrap = (k, pr) => pr.then(r => ({k, ...r})).catch(e => ({k, rows: [], note: (k === 'meta' ? 'Meta: ' : 'Google: ') + e.message}));
-  if (!gId) jobs.push(wrap('meta', meta(q, metaId, pages, t0)));
-  if (!metaId) jobs.push(wrap('google', google(q, gId, pages, t0)));
+  const doMeta = !!metaId || !gId, doGoogle = !!gId || !metaId;
+  if (doMeta) jobs.push(wrap('meta', meta(q, metaId, pages, t0)));
+  if (doGoogle) jobs.push(wrap('google', google(q, gId, pages, t0)));
   const res = await Promise.all(jobs);
   const get = k => res.find(r => r.k === k);
   const m = get('meta'), g = get('google');

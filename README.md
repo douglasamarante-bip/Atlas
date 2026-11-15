@@ -36,9 +36,10 @@ Avisos: (a) a Meta e o Google leem anúncios por páginas que mudam sem aviso, e
 Guia para hospedar o coletor na Oracle Cloud (com HTTPS): `deploy/oracle/LEIAME.md`.
 
 ## Anunciantes pequenos, locais e de nicho
-- **Descobrir anunciantes:** no dashboard, digite o nicho (ex.: *confeitaria*) e, se quiser, a cidade ou bairro. Lista os anunciantes **ativos agora** cujos anúncios citam essas palavras; clique em **Analisar** para ver o painel completo. A Meta não filtra por cidade: a busca olha o texto dos anúncios, então vale testar variações (bairro, “delivery”, “entrega”, nome da cidade).
-- **Busca por nome:** se não achar um anunciante com aquele nome, o Atlas não escolhe um qualquer: mostra os parecidos para você escolher.
-- **Google:** pequenos anunciantes costumam estar cadastrados pela razão social. Se o nome fantasia não achar, tente a razão social.
+- **Buscar anunciantes:** digite o nome (ex.: *Sobrado Sabores*) ou um nicho (ex.: *confeitaria*) e, se quiser, a cidade/bairro. Aparecem os anunciantes da **Meta** (Facebook + Instagram) e do **Google** (Pesquisa + YouTube) com esse nome, o de nome igual vem marcado. **Analisar** abre o painel completo de um anunciante; **Ver tudo** abre Meta + Google + YouTube de uma vez.
+- A Meta não filtra por cidade: a cidade só entra como palavra no texto dos anúncios.
+- **Busca por ID:** aceita o ID de um anúncio (o “ID da biblioteca”), o ID da página (Meta) ou o ID do anunciante `AR…` (Google). Com o ID de anúncio, o Atlas descobre o anunciante sozinho.
+- Pequenos anunciantes costumam estar no Google pela razão social: se o nome fantasia não achar, tente a razão social.
 
 ## 2. Instalar a extensão
 1. Chrome → `chrome://extensions` → ative **Modo do desenvolvedor** → **Carregar sem compactação** → selecione a pasta `extension/`.

@@ -69,7 +69,7 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 </select>
 </div>
 <div class="bar"><select id="idt"><option value="auto">ID: detectar sozinho</option><option value="mad">Meta · ID do anúncio</option><option value="mpg">Meta · ID da página/anunciante</option><option value="gadv">Google · ID do anunciante (AR…)</option></select><input id="idq" placeholder="ID da biblioteca ou do anunciante (ex.: 1234567890123 ou AR0123456789)" autocomplete="off"><button class="pri" id="idgo">Buscar por ID</button></div>
-<div class="bar"><input id="dn" placeholder="Descobrir anunciantes: nicho ou palavra do anúncio (ex.: confeitaria, pet shop)" autocomplete="off"><input id="dc" placeholder="Cidade ou bairro (opcional)" autocomplete="off"><button class="pri" id="dgo">Descobrir anunciantes</button></div>
+<div class="bar"><input id="dn" placeholder="Buscar anunciante pelo nome (ex.: Sobrado Sabores) ou por nicho (ex.: confeitaria)" autocomplete="off"><input id="dc" placeholder="Cidade ou bairro (opcional)" autocomplete="off"><button class="pri" id="dgo">Buscar anunciantes</button></div>
 <div id="disc"></div>
 <div class="links" id="links"></div>
 <div class="chips" id="chips"></div>
@@ -174,15 +174,20 @@ try{const code=ls('atlas-code'),r=await fetch(API,{headers:code?{'x-atlas-code':
 const m=r.status===400||r.status===200?['gr','Busca real conectada.']:r.status===401?['gr','Busca real conectada (vai pedir o código de acesso na primeira busca).']:r.status===500?['rd','A função do Netlify está sem a variável SEARCHAPI_KEY.']:r.status===404?['rd',MSG404]:['rd','A busca real respondeu com erro '+r.status+'.'];
 el.innerHTML=`<span style="color:var(--${m[0]})">●</span> ${esc(m[1])}`}
 catch(e){el.innerHTML='<span style="color:var(--rd)">●</span> '+esc(MSGNET())}}
+async function analyze(mid,gid,label){const p={};if(mid)p.mid=mid;if(gid)p.gid=gid;
+if(await live(p,label))return;if(!IMPORTED)ADS=demo(label);render()}
 async function discover(){const n=$('dn').value.trim(),c=$('dc').value.trim();if(!n)return;const d=$('disc');
-d.innerHTML='<div class="card mu" style="margin-bottom:12px">Procurando anunciantes ativos… (pode levar até 1 minuto)</div>';
-try{const code=ls('atlas-code'),r=await fetch(API+'?'+new URLSearchParams({mode:'discover',q:(n+' '+c).trim()}),{headers:code?{'x-atlas-code':code}:{}});
+d.innerHTML='<div class="card mu" style="margin-bottom:12px">Procurando anunciantes na Meta e no Google… (pode levar até 1 minuto)</div>';
+try{const code=ls('atlas-code'),r=await fetch(API+'?'+new URLSearchParams({mode:'discover',q:n,city:c}),{headers:code?{'x-atlas-code':code}:{}});
 if(r.status===401){const k=prompt('Código de acesso do Atlas:');if(k){ls('atlas-code',k);return discover()}d.innerHTML='';return}
 const j=await r.json().catch(()=>null);
 if(!j||!r.ok){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">'+esc((j&&j.error)||(r.status===404?MSG404:'Erro '+r.status))+'</div>';return}
-if(!j.advertisers.length){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">Nenhum anunciante ativo encontrado. A busca olha o <b>texto dos anúncios</b>, não a cidade do anunciante: tente outras palavras (nicho, nome do bairro, “delivery”…).</div>';return}
-d.innerHTML='<div class="card sc" style="margin-bottom:12px"><h3>Anunciantes ativos para “'+esc(j.q)+'”</h3><table><tr><th>Anunciante</th><th>Anúncios</th><th>Ativos</th><th>No ar desde</th><th></th></tr>'+j.advertisers.map(a=>`<tr><td>${esc(a.name)}</td><td>${a.ads}</td><td>${a.active}</td><td>${esc(a.since||'—')}</td><td><button data-id="${esc(a.id)}">Analisar</button></td></tr>`).join('')+'</table></div>';
-d.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{$('idt').value='mpg';$('idq').value=b.dataset.id;byId();window.scrollTo({top:0,behavior:'smooth'})})}
+const rows=[...(j.meta||[]).map(a=>['Meta',a]),...(j.google||[]).map(a=>['Google',a])],best=j.best||{};
+if(!rows.length){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">Nenhum anunciante encontrado. Tente o nome de outro jeito (com ou sem acento, nome da empresa registrada) ou palavras do anúncio.</div>';return}
+d.innerHTML='<div class="card sc" style="margin-bottom:12px"><h3>Anunciantes para “'+esc(j.q)+'”</h3>'+(best.meta||best.google?'<p style="margin:0 0 10px"><button class="pri" id="dall">Ver tudo: Meta + Google + YouTube do melhor resultado</button></p>':'')+'<table><tr><th>Plataforma</th><th>Anunciante</th><th>Anúncios</th><th>Ativos</th><th>No ar desde</th><th></th></tr>'+rows.map(([p,a])=>`<tr><td>${p==='Meta'?'Meta (Facebook + Instagram)':'Google (Pesquisa + YouTube)'}</td><td>${esc(a.name)}${a.match?' <span class="tag on-t">nome igual</span>':''}</td><td>${a.ads==null?'—':a.ads}</td><td>${a.active==null?'—':a.active}</td><td>${esc(a.since||'—')}</td><td><button data-p="${p}" data-id="${esc(a.id)}" data-n="${esc(a.name)}">Analisar</button></td></tr>`).join('')+'</table></div>';
+const up=()=>window.scrollTo({top:0,behavior:'smooth'});
+d.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{analyze(b.dataset.p==='Meta'?b.dataset.id:'',b.dataset.p==='Google'?b.dataset.id:'',b.dataset.n);up()});
+if($('dall'))$('dall').onclick=()=>{analyze(best.meta,best.google,n);up()}}
 catch(e){d.innerHTML='<div class="card warn mu" style="margin-bottom:12px">'+esc(MSGNET())+'</div>'}}
 async function search(){const v=$('q').value.trim();if(!v)return;NAME=v;links(v);
 if(await live({q:v.replace(/^@/,'')},v))return;

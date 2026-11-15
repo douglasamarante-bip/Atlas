@@ -21,7 +21,7 @@ function walk(o, fn) {
 // ---------- Meta ----------
 function walkMeta(obj, map) {
   walk(obj, o => {
-    if (o.ad_archive_id && o.start_date !== undefined) { map.set(String(o.ad_archive_id), o); return false; }
+    if (o.ad_archive_id && (o.start_date !== undefined || o.page_id !== undefined)) { map.set(String(o.ad_archive_id), o); return false; }
   });
 }
 function metaRow(a) {
@@ -45,16 +45,17 @@ function pickPages(map, q) { // quais anunciantes aparecem na busca por palavra-
   const score = p => { const n = norm(p.name); return (n === nq ? 3 : n.startsWith(nq) ? 2 : n.includes(nq) || nq.includes(n) ? 1 : 0) * 1000 + p.n; };
   return [...g.values()].map(p => ({...p, match: score(p) >= 1000})).sort((a, b) => score(b) - score(a));
 }
-function groupPages(map) { // anunciantes distintos numa busca por palavra-chave (descoberta)
+const nameMatch = (name, q) => { const n = norm(name), nq = norm(q); return n.length >= 3 && nq.length >= 3 && (n === nq || n.includes(nq) || nq.includes(n)); };
+function groupPages(map, q) { // anunciantes distintos numa busca por palavra-chave (descoberta)
   const g = new Map();
   for (const a of map.values()) {
     const id = String(a.page_id || (a.snapshot && a.snapshot.page_id) || ''); if (!id) continue;
     const e = g.get(id) || {id, name: a.page_name || (a.snapshot && a.snapshot.page_name) || id, ads: 0, active: 0, since: ''};
-    e.ads++; if (a.is_active) e.active++;
+    e.ads++; if (a.is_active) e.active++; e.match = q ? nameMatch(e.name, q) : false;
     const d = day(a.start_date); if (d && (!e.since || d < e.since)) e.since = d;
     g.set(id, e);
   }
-  return [...g.values()].sort((a, b) => b.active - a.active || b.ads - a.ads).slice(0, 40);
+  return [...g.values()].sort((a, b) => (b.match - a.match) || b.active - a.active || b.ads - a.ads).slice(0, 40);
 }
 
 // ---------- Google ----------
@@ -92,4 +93,4 @@ function googleRow(c, name, advId) { // primeira/última exibição = menor/maio
     link: `https://adstransparency.google.com/advertiser/${c.adv || advId}/creative/${c.id}`
   };
 }
-module.exports = {parseChunks, walk, walkMeta, metaRow, pickPages, groupPages, findAdvertisers, walkGoogle, googleRow};
+module.exports = {parseChunks, walk, walkMeta, metaRow, pickPages, groupPages, nameMatch, findAdvertisers, walkGoogle, googleRow};
