@@ -70,7 +70,7 @@ function walkGoogle(obj, map) {
     return false;
   });
 }
-function googleRow(c, name) { // primeira/última exibição = menor/maior data encontrada no anúncio
+function googleRow(c, name, advId) { // primeira/última exibição = menor/maior data encontrada no anúncio
   if (!c.ts.length) return null;
   const first = Math.min(...c.ts), last = Math.max(...c.ts), recent = Date.now() - last * 1000 < 3 * 864e5;
   const b = c.blob;
@@ -78,7 +78,7 @@ function googleRow(c, name) { // primeira/última exibição = menor/maior data 
     canal: /youtube/i.test(b) ? 'YouTube' : 'Google',
     fmt: /\.mp4|video|youtube/i.test(b) ? 'Vídeo' : /<img|\.(jpe?g|png|webp)|simgad|googleusercontent/i.test(b) ? 'Imagem' : 'Texto',
     nome: clean(name || 'Anúncio') + ' · ' + c.id, ini: iso(first), fim: recent ? '' : iso(last),
-    link: `https://adstransparency.google.com/advertiser/${c.adv}/creative/${c.id}`
+    link: `https://adstransparency.google.com/advertiser/${c.adv || advId}/creative/${c.id}`
   };
 }
 module.exports = {parseChunks, walk, walkMeta, metaRow, pickPages, findAdvertisers, walkGoogle, googleRow};

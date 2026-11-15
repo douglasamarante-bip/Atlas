@@ -34,7 +34,7 @@ function meta() {
     const inactive = /Inativo|Inactive/i.test(t);
     const L = t.split('\n').map(s => s.trim()).filter(Boolean), i = L.findIndex(s => /^(Patrocinado|Sponsored)$/i.test(s));
     rows.push({id, canal: 'Meta', nome: clean((i > 0 ? L[i-1] : 'Anúncio') + ' · ' + id), fmt: c.querySelector('video') ? 'Vídeo' : 'Imagem',
-      ini: iso(d[0].d), fim: d[1] ? iso(d[1].d) : (inactive ? iso(d[0].d) : ''), gasto: ''});
+      ini: iso(d[0].d), fim: d[1] ? iso(d[1].d) : (inactive ? iso(d[0].d) : ''), gasto: '', link: 'https://www.facebook.com/ads/library/?id=' + id});
   }
   return rows;
 }
@@ -46,7 +46,7 @@ function goog() {
     const L = t.split('\n').map(s => s.trim()).filter(Boolean);
     const fmt = /Vídeo|Video/i.test(t) ? 'Vídeo' : /Imagem|Image/i.test(t) ? 'Imagem' : 'Texto';
     rows.push({id: hash(t), canal: /youtube/i.test(t) ? 'YouTube' : 'Google', nome: clean(L[0] || 'Anúncio'), fmt,
-      ini: iso(d[0].d), fim: iso((d[1] || d[0]).d), gasto: ''});
+      ini: iso(d[0].d), fim: iso((d[1] || d[0]).d), gasto: '', link: ((c.querySelector('a[href*="/advertiser/"]') || {}).href || '')});
   }
   return rows;
 }

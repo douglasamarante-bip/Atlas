@@ -9,7 +9,7 @@
    - Se aparecer "Out of capacity": tente outro horário/domínio de disponibilidade.
 3. Anote o **IP público** da VM. Você **não precisa abrir portas**: o túnel da Cloudflare só faz conexões de saída.
 
-## 2. Instalar
+## 2. Instalar (atalho: `bash setup-oracle.sh` faz tudo abaixo)
 ```bash
 ssh -i SUA_CHAVE.key ubuntu@IP_DA_VM
 git clone https://github.com/SEU_USUARIO/SEU_REPO.git && cd SEU_REPO/deploy/oracle

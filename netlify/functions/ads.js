@@ -90,7 +90,7 @@ async function google(q, advId, pages, t0) {
         canal: yt.has(c.id) ? 'YouTube' : 'Google',
         fmt: {text: 'Texto', image: 'Imagem', video: 'Vídeo'}[c.format] || 'Imagem',
         nome: clean((c.advertiser && c.advertiser.name) || name || 'Anúncio') + ' · ' + c.id,
-        ini: day(c.first_shown_datetime), fim: recent ? '' : day(last), link: c.details_link || ''
+        ini: day(c.first_shown_datetime), fim: recent ? '' : day(last), link: c.details_link || `https://adstransparency.google.com/advertiser/${id}/creative/${c.id}`
       });
     }
     token = j.pagination && j.pagination.next_page_token;

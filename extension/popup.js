@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 let rows = [];
-const csvOf = r => r.map(x => [x.canal, x.nome, x.fmt, x.ini, x.fim, x.gasto].join(';')).join('\n');
+const csvOf = r => r.map(x => [x.canal, x.nome, x.fmt, x.ini, x.fim, x.gasto, x.link || ''].join(';')).join('\n');
 const show = () => { $('n').textContent = rows.length + ' anúncios guardados'; };
 const save = () => chrome.storage.local.set({rows, nome: $('nome').value, url: $('url').value});
 (async () => { const s = await chrome.storage.local.get(['rows', 'url', 'nome']); rows = s.rows || []; $('url').value = s.url || ''; $('nome').value = s.nome || ''; show(); })();

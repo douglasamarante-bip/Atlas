@@ -74,7 +74,7 @@ async function google(q, advId, scrolls) {
       await page.waitForTimeout(2000); stale = map.size === n ? stale + 1 : 0;
     }
   } finally { await c.close(); }
-  const rows = [...map.values()].map(x => P.googleRow(x, name)).filter(Boolean);
+  const rows = [...map.values()].map(x => P.googleRow(x, name, id)).filter(Boolean);
   return {rows, name, id, cands, note: rows.length ? '' : 'Google: nenhum anúncio coletado para este anunciante.'};
 }
 

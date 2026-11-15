@@ -83,7 +83,7 @@ textarea{width:100%;min-height:110px;margin-top:8px;font-family:ui-monospace,mon
 <div class="card sc" style="margin-bottom:12px"><h3>Anúncios com maior gasto estimado</h3><table id="tb"></table></div>
 
 <details class="card"><summary>Importar dados reais (CSV)</summary>
-<p class="mu">Abra a Biblioteca de Anúncios da Meta ou o Centro de Transparência do Google, copie os dados e cole abaixo, uma linha por anúncio:<br><code>canal;anuncio;formato;inicio;fim;gasto</code> – canal: Facebook, Instagram, YouTube ou Google. Fim e gasto podem ficar vazios (fim vazio = ativo; gasto vazio = estimado).</p>
+<p class="mu">Abra a Biblioteca de Anúncios da Meta ou o Centro de Transparência do Google, copie os dados e cole abaixo, uma linha por anúncio:<br><code>canal;anuncio;formato;inicio;fim;gasto;link</code> – canal: Facebook, Instagram, YouTube ou Google. Fim e gasto podem ficar vazios (fim vazio = ativo; gasto vazio = estimado).</p>
 <textarea id="csv" placeholder="Instagram;Promo de Páscoa;Vídeo;2026-03-01;2026-03-20;350&#10;Google;Busca marca;Texto;2026-05-10;;"></textarea>
 <div class="bar"><button class="pri" id="imp">Carregar dados</button><button id="reset" style="display:none">Voltar ao modo demonstração</button></div>
 </details>
@@ -125,8 +125,8 @@ const cs=Object.keys(CH).filter(c=>L.some(a=>a.canal===c)),sp=cs.map(c=>L.filter
 mk('c2',{type:'doughnut',data:{labels:cs,datasets:[{data:sp.map(Math.round),backgroundColor:cs.map(c=>CH[c].c),borderColor:'transparent'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#8393b3',boxWidth:10}}}}});
 const fs=FM.map(f=>L.filter(a=>a.fmt===f).length);
 mk('c3',{type:'bar',data:{labels:FM,datasets:[{data:fs,backgroundColor:['#ff7a1a','#3b82f6','#22d3ee','#22c55e','#a78bfa'],borderRadius:4}]},options:{...base,indexAxis:'y'}});
-$('tb').innerHTML='<tr><th>Anúncio</th><th>Canal</th><th>Formato</th><th>Início</th><th>Dias no ar</th><th>Gasto aprox.</th><th>Status</th></tr>'+
-L.slice().sort((a,b)=>b.est-a.est).slice(0,12).map(a=>`<tr><td>${a.link&&/^https:\/\//.test(a.link)?`<a style="color:var(--cy)" target="_blank" rel="noopener" href="${esc(a.link)}">${esc(a.nome)}</a>`:lk(a.nome)}</td><td><span class="dot" style="background:${CH[a.canal].c}"></span>${a.canal}</td><td>${a.fmt}</td><td>${a.ini.toLocaleDateString('pt-BR')}</td><td>${a.dias}</td><td><b>${brl(a.est)}</b></td><td><span class="tag ${a.ativo?'on-t':'off-t'}">${a.ativo?'Ativo':'Encerrado'}</span></td></tr>`).join('')}
+$('tb').innerHTML='<tr><th>Anúncio</th><th>Canal</th><th>Formato</th><th>Início</th><th>Dias no ar</th><th>Gasto aprox.</th><th>Status</th><th>Origem</th></tr>'+
+L.slice().sort((a,b)=>b.est-a.est).slice(0,12).map(a=>`<tr><td>${a.link&&/^https:\/\//.test(a.link)?`<a style="color:var(--cy)" target="_blank" rel="noopener" href="${esc(a.link)}">${esc(a.nome)}</a>`:lk(a.nome)}</td><td><span class="dot" style="background:${CH[a.canal].c}"></span>${a.canal}</td><td>${a.fmt}</td><td>${a.ini.toLocaleDateString('pt-BR')}</td><td>${a.dias}</td><td><b>${brl(a.est)}</b></td><td><span class="tag ${a.ativo?'on-t':'off-t'}">${a.ativo?'Ativo':'Encerrado'}</span></td><td>${og(a)}</td></tr>`).join('')}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function links(v){const e=encodeURIComponent(v.replace(/^@/,''));
 $('links').innerHTML=`<a target="_blank" rel="noopener" href="https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=BR&q=${e}&search_type=keyword_unordered">Abrir na Biblioteca de Anúncios da Meta ↗</a><a target="_blank" rel="noopener" href="https://adstransparency.google.com/?region=BR">Abrir no Centro de Transparência do Google ↗</a>`}
@@ -143,6 +143,8 @@ NAME='ID '+v;$('q').value='';
 $('links').innerHTML=L.map(x=>`<a target="_blank" rel="noopener" href="${x[1]}">${x[0]} ↗</a>`).join('')+'<br><span class="mu">Abra o link, deixe os anúncios na tela e use a extensão Atlas para capturar e enviar para cá.</span>';
 if(await live({id:v,type:$('idt').value},NAME))return;
 if(!IMPORTED)ADS=demo(NAME);render()}
+const og=a=>{let u=a.link&&/^https:\/\//.test(a.link)?a.link:'';if(!u){const m=String(a.nome).match(/·\s*(\d{6,})$/);if(m&&['Meta','Facebook','Instagram'].includes(a.canal))u='https://www.facebook.com/ads/library/?id='+m[1]}
+return u?`<a style="color:var(--cy)" target="_blank" rel="noopener" href="${esc(u)}">${/facebook\.com/.test(u)?'Biblioteca Meta':'Transparência Google'} ↗</a>`:'<span class="mu">—</span>'};
 const lk=n=>{const m=String(n).match(/^(.*?)\s*·\s*(\d{6,})$/);return m?`${esc(m[1])} · <a style="color:var(--cy)" target="_blank" rel="noopener" href="https://www.facebook.com/ads/library/?id=${m[2]}">${m[2]}</a>`:esc(n)};
 const API=window.ATLAS_API||'/.netlify/functions/ads';
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v)}catch(e){return ''}};
@@ -168,7 +170,7 @@ if(!IMPORTED)ADS=demo(v);render()}
 function imp(txt,nm){const rows=(typeof txt==='string'?txt:$('csv').value).split(/\n/).map(l=>l.trim()).filter(Boolean),out=[];
 for(const l of rows){const c=l.split(/;|,/).map(x=>x.trim()),k=Object.keys(CH).find(x=>x.toLowerCase()===(c[0]||'').toLowerCase()),ini=new Date(c[3]);
 if(!k||isNaN(ini))continue;const fim=c[4]?new Date(c[4]):null,g=c[5]?parseFloat(c[5].replace(',','.')):null;
-out.push({canal:k,nome:c[1]||'Anúncio',fmt:c[2]||'Imagem',ini,fim:fim&&!isNaN(fim)?fim:null,gasto:isNaN(g)?null:g})}
+out.push({canal:k,nome:c[1]||'Anúncio',fmt:c[2]||'Imagem',ini,fim:fim&&!isNaN(fim)?fim:null,gasto:isNaN(g)?null:g,link:/^https:\/\//.test(c[6]||'')?c[6]:''})}
 if(!out.length){alert('Nenhuma linha válida. Use: canal;anuncio;formato;AAAA-MM-DD;AAAA-MM-DD;gasto');return}
 ADS=out;IMPORTED=true;LIVE=false;if(nm)NAME=nm;NAME=NAME||'Dados importados';render()}
 ['Todos','Meta','Google'].forEach(p=>{const b=document.createElement('button');b.className='chip'+(p===PF?' on':'');b.textContent=p==='Todos'?'Todas as plataformas':p==='Meta'?'Meta (Facebook + Instagram)':'Google (YouTube + Pesquisa)';
