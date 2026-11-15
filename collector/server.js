@@ -114,7 +114,7 @@ async function lookup({q, id, type, pages, mid, gid}) {
 }
 
 http.createServer(async (req, res) => {
-  const send = (code, obj) => { res.writeHead(code, {'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': process.env.ALLOW_ORIGIN || '*', 'Access-Control-Allow-Headers': 'x-atlas-code'}); res.end(JSON.stringify(obj)); };
+  const send = (code, obj) => { res.writeHead(code, {'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': process.env.ALLOW_ORIGIN || '*', 'Access-Control-Allow-Headers': 'x-atlas-code', 'Access-Control-Allow-Methods': 'GET, OPTIONS'}); res.end(JSON.stringify(obj)); };
   if (req.method === 'OPTIONS') return send(204, {});
   const u = new URL(req.url, 'http://x');
   if (u.pathname === '/health') return send(200, {ok: true});
